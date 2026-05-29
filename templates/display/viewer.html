@@ -215,12 +215,12 @@ function renderCompStatus() {
     </div>
     <table class="w-full text-sm border-collapse">
       <thead>
-        <tr class="text-slate-400 text-xs">
+        <tr class="text-slate-400">
           <th class="text-left py-1 pr-3 font-medium sticky left-0 bg-slate-900">Squadra</th>`;
   probs.forEach(p => {
-    html += `<th class="text-center px-1 py-1 font-medium min-w-[60px]">
-      <div class="text-xs">${String(p.number).padStart(2,'0')}</div>
-      <div class="text-yellow-400 font-mono">${Math.round(p.value)}</div>
+    html += `<th class="text-center px-1 py-2 font-medium min-w-[60px]">
+      <div class="text-sm font-bold text-slate-300">${String(p.number).padStart(2,'0')}</div>
+      <div class="text-base text-yellow-400 font-mono font-bold">${Math.round(p.value)}</div>
     </th>`;
   });
   html += `</tr></thead><tbody>`;
@@ -254,21 +254,19 @@ function renderCompStatus() {
     html += `</tr>`;
   });
 
-  html += `</tbody></table>`;
-
-  // Column footers (solver counts)
-  html += `<div class="flex mt-2 gap-1">
-    <div class="pr-3 text-slate-500 text-xs" style="min-width:120px">Risolutori:</div>`;
+  // Riga risolutori in tfoot — allineata automaticamente alle colonne della tabella
+  html += `</tbody><tfoot><tr>
+    <td class="py-1.5 pr-3 text-slate-500 text-xs font-medium sticky left-0 bg-slate-900">Risolutori</td>`;
   probs.forEach(p => {
     const count = Math.min(p.num_solvers, n);
     let bg = 'bg-slate-700 text-slate-400';
     if (count >= n) bg = 'bg-red-800 text-red-200';
     else if (count >= 1) bg = 'bg-yellow-800 text-yellow-200';
-    html += `<div class="min-w-[60px] text-center px-1">
+    html += `<td class="px-1 py-1 text-center">
       <span class="text-xs font-mono font-bold px-2 py-0.5 rounded ${bg}">${count}</span>
-    </div>`;
+    </td>`;
   });
-  html += `</div></div>`;
+  html += `</tr></tfoot></table></div>`;
   return html;
 }
 
