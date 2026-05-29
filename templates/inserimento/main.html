@@ -97,7 +97,7 @@
        @keydown.escape.window="modale = false">
     <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4" @click.stop>
       <h3 class="text-xl font-bold mb-6 text-center">Conferma consegna</h3>
-      <div class="space-y-3 mb-8 text-center">
+      <div class="space-y-3 mb-4 text-center">
         <div>
           <span class="text-sm text-gray-500 block">Squadra</span>
           <span class="font-mono text-3xl font-bold" x-text="squadra.padStart(2,'0')"></span>
@@ -111,13 +111,19 @@
           <span class="font-mono text-4xl font-bold tracking-widest" x-text="risposta.padStart(4,'0')"></span>
         </div>
       </div>
+      <!-- Esito -->
+      <div class="mb-6 py-3 rounded-xl text-center text-lg font-bold"
+           :class="corretta ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+           x-text="corretta ? 'CORRETTA' : 'ERRATA'">
+      </div>
       <div class="flex gap-3">
         <button @click="modale = false"
                 class="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 text-lg">
           Annulla
         </button>
         <button @click="conferma()"
-                class="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 text-lg">
+                class="flex-1 py-3 rounded-xl font-semibold text-white text-lg"
+                :class="corretta ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'">
           Conferma
         </button>
       </div>
@@ -160,14 +166,24 @@
 </div>
 
 <script>
+const RISPOSTE = {
+  {% for prob in problems %}
+  {{ prob.number }}: '{{ prob.answer }}',
+  {% endfor %}
+};
+
 function consegna() {
   return {
     squadra: '',
     problema: '',
     risposta: '',
     modale: false,
+    corretta: false,
     apriConferma(e) {
       if (!this.squadra || !this.problema || !this.risposta) return;
+      const rispCorretta = RISPOSTE[parseInt(this.problema)];
+      this.corretta = rispCorretta !== undefined &&
+                      this.risposta.padStart(4, '0') === rispCorretta;
       this.modale = true;
     },
     conferma() {
