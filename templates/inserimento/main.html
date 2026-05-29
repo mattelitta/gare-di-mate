@@ -12,11 +12,11 @@
 
 {% if jolly_expired %}
 <div class="bg-orange-100 border border-orange-300 text-orange-800 rounded px-4 py-2 text-sm mb-4">
-  ⚠️ Tempo jolly scaduto ({{ comp.jolly_time_minutes }} min). I jolly inseriti ora saranno registrati con avviso.
+  Tempo jolly scaduto ({{ comp.jolly_time_minutes }} min).
 </div>
 {% endif %}
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4" x-data="consegna()">
 
   <!-- Inserimento Jolly -->
   <div class="bg-white rounded-lg shadow p-5">
@@ -65,31 +65,71 @@
   <!-- Inserimento Soluzione -->
   <div class="bg-white rounded-lg shadow p-5">
     <h2 class="font-semibold text-lg mb-4">✏️ Soluzione</h2>
-    <form method="post" action="/inserimento/{{ comp.id }}/soluzione" class="space-y-3">
+    <form @submit.prevent="apriConferma($event)" class="space-y-3">
       <div>
         <label class="block text-sm font-medium mb-1">ID Squadra</label>
-        <input name="team_number" type="text" maxlength="2" pattern="\d{1,2}"
+        <input x-model="squadra" name="team_number" type="text" maxlength="2" pattern="\d{1,2}"
                placeholder="01"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">ID Problema</label>
-        <input name="problem_number" type="text" maxlength="2" pattern="\d{1,2}"
+        <input x-model="problema" name="problem_number" type="text" maxlength="2" pattern="\d{1,2}"
                placeholder="01"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Risposta</label>
-        <input name="answer" type="text" maxlength="4" pattern="\d{4}"
+        <input x-model="risposta" name="answer" type="text" maxlength="4" pattern="\d{4}"
                placeholder="0000"
                class="w-full border-2 rounded-lg px-4 py-3 text-3xl font-mono text-center tracking-widest focus:border-green-500 outline-none">
       </div>
       <button type="submit"
               class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 text-lg">
-        Registra Soluzione
+        Consegna
       </button>
     </form>
   </div>
+
+  <!-- Modale di conferma consegna -->
+  <div x-show="modale" x-cloak
+       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+       @keydown.escape.window="modale = false">
+    <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4" @click.stop>
+      <h3 class="text-xl font-bold mb-6 text-center">Conferma consegna</h3>
+      <div class="space-y-3 mb-8 text-center">
+        <div>
+          <span class="text-sm text-gray-500 block">Squadra</span>
+          <span class="font-mono text-3xl font-bold" x-text="squadra.padStart(2,'0')"></span>
+        </div>
+        <div>
+          <span class="text-sm text-gray-500 block">Problema</span>
+          <span class="font-mono text-3xl font-bold" x-text="problema.padStart(2,'0')"></span>
+        </div>
+        <div>
+          <span class="text-sm text-gray-500 block">Risposta</span>
+          <span class="font-mono text-4xl font-bold tracking-widest" x-text="risposta.padStart(4,'0')"></span>
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button @click="modale = false"
+                class="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 text-lg">
+          Annulla
+        </button>
+        <button @click="conferma()"
+                class="flex-1 bg-green-600 text-white py-3 rounded-xl font-semibold hover:bg-green-700 text-lg">
+          Conferma
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form nascosto per submit effettivo -->
+  <form id="form-soluzione-reale" method="post" action="/inserimento/{{ comp.id }}/soluzione" class="hidden">
+    <input name="team_number" :value="squadra">
+    <input name="problem_number" :value="problema">
+    <input name="answer" :value="risposta">
+  </form>
 
 </div>
 
@@ -118,4 +158,23 @@
     </div>
   </div>
 </div>
+
+<script>
+function consegna() {
+  return {
+    squadra: '',
+    problema: '',
+    risposta: '',
+    modale: false,
+    apriConferma(e) {
+      if (!this.squadra || !this.problema || !this.risposta) return;
+      this.modale = true;
+    },
+    conferma() {
+      this.modale = false;
+      document.getElementById('form-soluzione-reale').submit();
+    }
+  }
+}
+</script>
 {% endblock %}
