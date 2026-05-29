@@ -103,18 +103,22 @@ def compute_state(
         if pid not in problems:
             continue
 
+        is_guest = teams[tid].is_guest if tid in teams else False
+
         if sub.is_correct:
             if tid not in prob_solver_set[pid]:
                 prob_solver_set[pid].add(tid)
                 prob_solvers[pid].append(tid)
-                correct_count[pid] += 1
-                if correct_count[pid] == comp.n and nth_solver_time[pid] is None:
-                    nth_solver_time[pid] = sub.game_seconds
+                # Gli ospiti non contano verso n (non bloccano il bonus al minuto)
+                if not is_guest:
+                    correct_count[pid] += 1
+                    if correct_count[pid] == comp.n and nth_solver_time[pid] is None:
+                        nth_solver_time[pid] = sub.game_seconds
         else:
-            # Errori contano sempre (anche dopo aver risolto)
+            # Errori contano sempre per il punteggio della squadra (-10)
             prob_errors[pid][tid] = prob_errors[pid].get(tid, 0) + 1
-            # Errori pre-soglia: per il calcolo del valore del problema
-            if sub.game_seconds <= threshold_seconds:
+            # Gli ospiti non influenzano il valore del problema con i loro errori
+            if not is_guest and sub.game_seconds <= threshold_seconds:
                 errors_pre_threshold[pid][tid] = errors_pre_threshold[pid].get(tid, 0) + 1
 
     # --- Calcolo valore problema (O(1) per problema grazie alla precomputazione) ---
