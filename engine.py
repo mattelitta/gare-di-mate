@@ -143,12 +143,23 @@ def compute_state(
     prob_values = {pid: problem_value(pid) for pid in problems}
 
     # --- Bonus prima consegna ---
+    # Ospiti e non-ospiti hanno contatori separati:
+    # - non-ospiti: posizione tra i soli non-ospiti (non "occupano" un posto agli ospiti)
+    # - ospiti: posizione assoluta nell'ordine di consegna
+    # Esempio: sq1 → ospite → sq2 → bonus[0], bonus[1], bonus[1]
     fd_bonuses = comp.first_delivery_bonuses
     first_delivery_bonus_map: dict[int, dict[int, int]] = {pid: {} for pid in problems}
     for pid, solvers in prob_solvers.items():
-        for i, tid in enumerate(solvers):
-            if i < len(fd_bonuses):
-                first_delivery_bonus_map[pid][tid] = fd_bonuses[i]
+        non_guest_idx = 0
+        for abs_idx, tid in enumerate(solvers):
+            is_guest = teams[tid].is_guest if tid in teams else False
+            if is_guest:
+                if abs_idx < len(fd_bonuses):
+                    first_delivery_bonus_map[pid][tid] = fd_bonuses[abs_idx]
+            else:
+                if non_guest_idx < len(fd_bonuses):
+                    first_delivery_bonus_map[pid][tid] = fd_bonuses[non_guest_idx]
+                non_guest_idx += 1
 
     # --- Bonus full ---
     full_bonus_map: dict[int, int] = {}

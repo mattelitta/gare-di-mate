@@ -258,15 +258,18 @@ print()
 #   P2(jolly): (79 + 10) * 2 = 89*2 = 178
 #   total = 40 - 10 + 178 = 208
 
-# P2 solvers: sq3(min20), ospite(min30), sq1(min35) → fd: sq3=20, ospite=15, sq1=10
-# Pitagora(jolly=P1): P1(62+15-10)*2=134 + P2(79+10)=89 + P3(-10) = 40+134+89-10 = 253
+# P2 solvers: sq3(min20), ospite(min30), sq1(min35)
+#   sq3 non-ospite → non_guest_idx=0 → fd[0]=20
+#   ospite → abs_idx=1 → fd[1]=15
+#   sq1 non-ospite → non_guest_idx=1 → fd[1]=15  (ospite non occupa il posto)
+# Pitagora(jolly=P1): P1(62+15-10)*2=134 + P2(79+15)=94 + P3(-10) = 40+134+94-10 = 258
 # Eulero(jolly=P3):   P1(62+20)=82 + P2(-10) + P3(87+20)*2=214 = 40+82-10+214 = 326
 # Gauss(jolly=P2):    P1(62+10)=72 + P2(79+20)*2=198 + P4(-10) = 40+72+198-10 = 300
 # Fermat(jolly=P4):   P1(-10) + P4(-10)*2=-20 = 40-10-20 = 10
 # Newton(jolly=P1):   P2(-10) + penalita(-30) = 40-10-30 = 0
 # Ospiti(jolly=P2):   P1(-10) + P2(79+15)*2=188 = 40-10+188 = 218
 expected_totals = {
-    "Pitagora": 253,
+    "Pitagora": 258,
     "Eulero":   326,
     "Gauss":    300,
     "Fermat":   10,
