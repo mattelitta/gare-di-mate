@@ -113,10 +113,9 @@ function rigaBarra({ label, sublabel, rank, barColor, pct, value, valueColor, se
         <span class="font-semibold text-sm ${label.color}">${label.text}</span>
         <span class="text-slate-500 text-xs ml-1">${sublabel}</span>
       </div>
-      <div class="flex-1 relative rounded overflow-hidden bg-slate-700" style="height:1.6rem">
+      <span class="w-16 text-right font-mono font-bold text-xl ${valueColor} shrink-0">${value}</span>
+      <div class="flex-1 rounded overflow-hidden bg-slate-700" style="height:1.6rem">
         <div class="${barColor} h-full rounded bar-fill" style="width:${pct}%"></div>
-        <span class="absolute inset-0 flex items-center justify-end pr-2 font-mono font-bold text-sm ${valueColor}"
-              style="text-shadow:0 1px 4px rgba(0,0,0,0.9)">${value}</span>
       </div>
     </div>`;
 }
@@ -149,7 +148,7 @@ function renderRanking() {
       rank: isGuest ? '—' : i + 1,
       barColor, pct,
       value: Math.round(t.total),
-      valueColor: 'text-white',
+      valueColor: 'text-slate-100',
       separator: showLine,
     });
   });
@@ -173,7 +172,7 @@ function renderTeamList() {
       rank: String(t.number).padStart(2, '0'),
       barColor, pct,
       value: Math.round(t.total),
-      valueColor: 'text-white',
+      valueColor: 'text-slate-100',
       separator: false,
     });
   });
@@ -197,7 +196,7 @@ function renderProblemValues() {
       barColor: 'bg-yellow-500',
       pct,
       value: Math.round(p.value),
-      valueColor: 'text-white',
+      valueColor: 'text-yellow-300',
       separator: false,
     });
   });
