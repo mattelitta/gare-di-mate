@@ -162,6 +162,8 @@ def compute_state(
                 non_guest_idx += 1
 
     # --- Bonus full ---
+    # Stessa logica del bonus prima consegna: ospiti usano posizione assoluta,
+    # non-ospiti usano posizione tra i soli non-ospiti.
     full_bonus_map: dict[int, int] = {}
     if num_problems > 0:
         # Per ogni squadra che ha risolto tutto, trova il momento dell'ultima soluzione
@@ -179,9 +181,16 @@ def compute_state(
                 completions.append((last_t, last_wall, tid))
         completions.sort()
         full_bonuses = comp.full_bonuses
-        for i, (_, _, tid) in enumerate(completions):
-            if i < len(full_bonuses):
-                full_bonus_map[tid] = full_bonuses[i]
+        non_guest_idx = 0
+        for abs_idx, (_, _, tid) in enumerate(completions):
+            is_guest = teams[tid].is_guest if tid in teams else False
+            if is_guest:
+                if abs_idx < len(full_bonuses):
+                    full_bonus_map[tid] = full_bonuses[abs_idx]
+            else:
+                if non_guest_idx < len(full_bonuses):
+                    full_bonus_map[tid] = full_bonuses[non_guest_idx]
+                non_guest_idx += 1
 
     # --- Penalizzazioni ---
     penalty_map: dict[int, int] = {}
