@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Gare di Mate — Home{% endblock %}
+{% block content %}
+<div class="text-center mt-16">
+  <h1 class="text-4xl font-bold mb-4">Gare di Mate</h1>
+  <p class="text-gray-600 mb-8">Sistema di gestione gare a squadre di matematica</p>
+  <div class="flex justify-center gap-4 flex-wrap">
+    <a href="/admin/" class="bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-800">Admin</a>
+    <a href="/inserimento/" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700">Inserimento</a>
+    <a href="/regia/" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700">Regia</a>
+    <a href="/display/" class="bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600">Display</a>
+  </div>
+</div>
+{% endblock %}

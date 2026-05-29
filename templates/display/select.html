@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Scegli display — {{ comp.name }}{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto mt-8">
+  <h1 class="text-xl font-bold mb-2">{{ comp.name }}</h1>
+  <p class="text-gray-500 text-sm mb-6">Seleziona a quale display corrisponde questo schermo.</p>
+  <p class="text-xs text-gray-400 mb-4 font-mono">IP: {{ client_ip }}</p>
+  {% if displays %}
+  <div class="space-y-2">
+    {% for disp in displays %}
+    <a href="/display/{{ comp.id }}/schermo/{{ disp.id }}"
+       class="block bg-white rounded-lg shadow p-4 hover:shadow-md transition text-center">
+      <span class="font-semibold text-lg">{{ disp.name }}</span>
+      <span class="block text-xs text-gray-400 mt-1">{{ disp.current_view|replace('_',' ') }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+    <p>Nessun display configurato dalla regia.</p>
+    <p class="text-sm mt-2">Attendere che la regia aggiunga dei display.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

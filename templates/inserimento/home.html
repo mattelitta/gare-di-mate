@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Inserimento — Gare di Mate{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Inserimento consegne</h1>
+{% if comps %}
+<div class="space-y-3">
+  {% for comp in comps %}
+  <a href="/inserimento/{{ comp.id }}" class="block bg-white rounded-lg shadow p-4 hover:shadow-md transition">
+    <div class="flex items-center justify-between">
+      <div>
+        <span class="font-semibold text-lg">{{ comp.name }}</span>
+        <span class="text-gray-500 text-sm ml-2">{{ comp.date }}</span>
+      </div>
+      <span class="px-2 py-0.5 rounded text-xs font-medium
+        {% if comp.status == 'running' %}bg-green-100 text-green-800
+        {% elif comp.status == 'paused' %}bg-yellow-100 text-yellow-800
+        {% else %}bg-gray-200 text-gray-600{% endif %}">
+        {{ comp.status }}
+      </span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-500">Nessuna gara attiva.</p>
+{% endif %}
+{% endblock %}

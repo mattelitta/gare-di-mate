@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Modifica {{ comp.name }} — Admin{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold mb-6">Modifica parametri — {{ comp.name }}</h1>
+  <form method="post" action="/admin/gara/{{ comp.id }}/modifica" class="bg-white rounded-lg shadow p-6 space-y-4">
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="col-span-2">
+        <label class="block text-sm font-medium mb-1">Nome gara</label>
+        <input name="name" value="{{ comp.name }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Data</label>
+        <input name="date" type="date" value="{{ comp.date }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Password (vuoto = nessuna)</label>
+        <input name="password" type="password" class="w-full border rounded px-3 py-2" placeholder="Lascia vuoto per rimuovere">
+      </div>
+    </div>
+
+    <hr>
+    <h2 class="font-semibold text-gray-700">Parametri di punteggio</h2>
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Valore iniziale</label>
+        <input name="initial_value" type="number" value="{{ comp.initial_value }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">n</label>
+        <input name="n" type="number" value="{{ comp.n }}" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">k</label>
+        <input name="k" type="number" value="{{ comp.k }}" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div class="col-span-3">
+        <label class="block text-sm font-medium mb-1">Bonus prima consegna</label>
+        <input name="first_delivery_bonuses" value="{{ comp.first_delivery_bonuses|join(',') }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div class="col-span-3">
+        <label class="block text-sm font-medium mb-1">Bonus full</label>
+        <input name="full_bonuses" value="{{ comp.full_bonuses|join(',') }}" required class="w-full border rounded px-3 py-2">
+      </div>
+    </div>
+
+    <hr>
+    <h2 class="font-semibold text-gray-700">Parametri temporali (minuti)</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Durata gara</label>
+        <input name="duration_minutes" type="number" value="{{ comp.duration_minutes }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Tempo jolly</label>
+        <input name="jolly_time_minutes" type="number" value="{{ comp.jolly_time_minutes }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Minuto soglia</label>
+        <input name="threshold_minute" type="number" value="{{ comp.threshold_minute }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Minuto oscuramento</label>
+        <input name="blackout_minute" type="number" value="{{ comp.blackout_minute }}" required class="w-full border rounded px-3 py-2">
+      </div>
+    </div>
+
+    <hr>
+    <h2 class="font-semibold text-gray-700">Classifica</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Squadre qualificate</label>
+        <input name="num_qualified" type="number" value="{{ comp.num_qualified }}" min="0" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Posizioni da rivelare</label>
+        <input name="final_reveal_count" type="number" value="{{ comp.final_reveal_count }}" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded hover:bg-blue-800">Salva</button>
+      <a href="/admin/gara/{{ comp.id }}" class="px-6 py-2 rounded border hover:bg-gray-50">Annulla</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

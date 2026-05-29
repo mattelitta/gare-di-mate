@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}{{ comp.name }} — Admin{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-2xl font-bold">{{ comp.name }}</h1>
+    <span class="text-gray-500 text-sm">{{ comp.date }}</span>
+    <span class="ml-3 px-2 py-0.5 rounded text-xs font-medium
+      {% if comp.status == 'running' %}bg-green-100 text-green-800
+      {% elif comp.status == 'paused' %}bg-yellow-100 text-yellow-800
+      {% elif comp.status == 'ended' %}bg-gray-200 text-gray-600
+      {% else %}bg-blue-100 text-blue-800{% endif %}">
+      {{ comp.status }}
+    </span>
+  </div>
+  <a href="/admin/" class="text-sm text-gray-500 hover:underline">← Tutte le gare</a>
+</div>
+
+<!-- Controlli stato -->
+<div class="bg-white rounded-lg shadow p-4 mb-4 flex flex-wrap gap-2 items-center">
+  <span class="font-medium text-sm mr-2">Stato gara:</span>
+  {% if comp.status == 'created' %}
+    <form method="post" action="/admin/gara/{{ comp.id }}/avvia">
+      <button class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm">▶ Avvia</button>
+    </form>
+  {% elif comp.status == 'running' %}
+    <form method="post" action="/admin/gara/{{ comp.id }}/pausa">
+      <button class="bg-yellow-500 text-white px-4 py-1.5 rounded hover:bg-yellow-600 text-sm">⏸ Pausa</button>
+    </form>
+    <form method="post" action="/admin/gara/{{ comp.id }}/termina"
+          onsubmit="return confirm('Terminare definitivamente la gara?')">
+      <button class="bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700 text-sm">⏹ Termina</button>
+    </form>
+  {% elif comp.status == 'paused' %}
+    <form method="post" action="/admin/gara/{{ comp.id }}/avvia">
+      <button class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm">▶ Riprendi</button>
+    </form>
+    <form method="post" action="/admin/gara/{{ comp.id }}/termina"
+          onsubmit="return confirm('Terminare definitivamente la gara?')">
+      <button class="bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700 text-sm">⏹ Termina</button>
+    </form>
+  {% elif comp.status == 'ended' %}
+    {% if not comp.final_locked %}
+      <form method="post" action="/admin/gara/{{ comp.id }}/blocca-finale"
+            onsubmit="return confirm('Bloccare gli inserimenti e calcolare la classifica finale?')">
+        <button class="bg-blue-700 text-white px-4 py-1.5 rounded hover:bg-blue-800 text-sm">🔒 Blocca inserimenti e calcola finale</button>
+      </form>
+    {% else %}
+      <span class="text-sm text-gray-600">✅ Classifica finale bloccata</span>
+    {% endif %}
+  {% endif %}
+  <a href="/admin/gara/{{ comp.id }}/modifica" class="ml-auto text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">Modifica parametri</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+  <!-- Squadre -->
+  <div class="bg-white rounded-lg shadow p-4">
+    <h2 class="font-semibold mb-3">Squadre ({{ comp.teams|length }})</h2>
+    <div class="space-y-1 mb-4 max-h-60 overflow-y-auto">
+      {% for team in comp.teams|sort(attribute='number') %}
+      <div class="flex items-center justify-between text-sm py-1 border-b last:border-0">
+        <span>
+          <span class="font-mono text-xs text-gray-400 mr-1">{{ "%02d"|format(team.number) }}</span>
+          <strong>{{ team.name }}</strong> ({{ team.city }})
+          {% if team.is_guest %}<span class="text-xs text-orange-500 ml-1">ospite</span>{% endif %}
+        </span>
+        <div class="flex gap-1">
+          <a href="#" onclick="openEditTeam({{ team.id }}, {{ team.number }}, '{{ team.name|replace("'","\\'")|e }}', '{{ team.city|replace("'","\\'")|e }}', {{ team.is_guest|lower }})"
+             class="text-blue-600 hover:underline text-xs">mod.</a>
+          <form method="post" action="/admin/gara/{{ comp.id }}/squadre/{{ team.id }}/elimina"
+                onsubmit="return confirm('Eliminare {{ team.name }}?')">
+            <button class="text-red-500 hover:underline text-xs">elim.</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-gray-400 text-sm">Nessuna squadra.</p>
+      {% endfor %}
+    </div>
+    <!-- Add team form -->
+    <form method="post" action="/admin/gara/{{ comp.id }}/squadre/aggiungi" class="grid grid-cols-5 gap-1 text-sm">
+      <input name="number" type="number" placeholder="N°" class="border rounded px-2 py-1 col-span-1" required>
+      <input name="name" placeholder="Nome" class="border rounded px-2 py-1 col-span-2" required>
+      <input name="city" placeholder="Città" class="border rounded px-2 py-1 col-span-1" required>
+      <button type="submit" class="bg-blue-700 text-white rounded px-2 py-1 col-span-1">+</button>
+      <label class="col-span-5 flex items-center gap-1 text-xs text-gray-600">
+        <input name="is_guest" type="checkbox" value="true"> Ospite
+      </label>
+    </form>
+  </div>
+
+  <!-- Problemi -->
+  <div class="bg-white rounded-lg shadow p-4">
+    <h2 class="font-semibold mb-3">Problemi ({{ comp.problems|length }})</h2>
+    <div class="space-y-1 mb-4 max-h-60 overflow-y-auto">
+      {% for prob in comp.problems|sort(attribute='number') %}
+      <div class="flex items-center justify-between text-sm py-1 border-b last:border-0">
+        <span>
+          <span class="font-mono text-xs text-gray-400 mr-1">{{ "%02d"|format(prob.number) }}</span>
+          <strong>{{ prob.name }}</strong>
+          <span class="font-mono text-xs text-gray-500 ml-1">[{{ prob.answer }}]</span>
+        </span>
+        <div class="flex gap-1">
+          <a href="#" onclick="openEditProb({{ prob.id }}, {{ prob.number }}, '{{ prob.name|replace("'","\\'")|e }}', '{{ prob.answer }}')"
+             class="text-blue-600 hover:underline text-xs">mod.</a>
+          <form method="post" action="/admin/gara/{{ comp.id }}/problemi/{{ prob.id }}/elimina"
+                onsubmit="return confirm('Eliminare {{ prob.name }}?')">
+            <button class="text-red-500 hover:underline text-xs">elim.</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-gray-400 text-sm">Nessun problema.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="/admin/gara/{{ comp.id }}/problemi/aggiungi" class="grid grid-cols-5 gap-1 text-sm">
+      <input name="number" type="number" placeholder="N°" class="border rounded px-2 py-1" required>
+      <input name="name" placeholder="Nome" class="border rounded px-2 py-1 col-span-2" required>
+      <input name="answer" placeholder="Risp." maxlength="4" class="border rounded px-2 py-1 font-mono" required>
+      <button type="submit" class="bg-blue-700 text-white rounded px-2 py-1">+</button>
+    </form>
+  </div>
+
+  <!-- Penalizzazioni -->
+  <div class="bg-white rounded-lg shadow p-4">
+    <h2 class="font-semibold mb-3">Penalizzazioni</h2>
+    <div class="space-y-1 mb-4 max-h-48 overflow-y-auto">
+      {% for pen in comp.penalties|sort(attribute='created_at') %}
+      <div class="flex items-center justify-between text-sm py-1 border-b last:border-0">
+        <span>
+          {% for t in comp.teams %}{% if t.id == pen.team_id %}<strong>{{ t.name }}</strong>{% endif %}{% endfor %}
+          <span class="{% if pen.value < 0 %}text-red-600{% else %}text-green-600{% endif %} font-mono ml-2">
+            {{ "%+d"|format(pen.value) }}
+          </span>
+          {% if pen.note %}<span class="text-gray-500 ml-1 text-xs">– {{ pen.note }}</span>{% endif %}
+        </span>
+        <form method="post" action="/admin/gara/{{ comp.id }}/penalizzazioni/{{ pen.id }}/elimina">
+          <button class="text-red-500 hover:underline text-xs">elim.</button>
+        </form>
+      </div>
+      {% else %}
+      <p class="text-gray-400 text-sm">Nessuna penalizzazione.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="/admin/gara/{{ comp.id }}/penalizzazioni/aggiungi" class="grid grid-cols-5 gap-1 text-sm">
+      <select name="team_id" class="border rounded px-2 py-1 col-span-2" required>
+        <option value="">Squadra</option>
+        {% for t in comp.teams|sort(attribute='number') %}
+        <option value="{{ t.id }}">{{ "%02d"|format(t.number) }} {{ t.name }}</option>
+        {% endfor %}
+      </select>
+      <input name="value" type="number" placeholder="Punti" class="border rounded px-2 py-1" required>
+      <input name="note" placeholder="Nota" class="border rounded px-2 py-1 col-span-1">
+      <button type="submit" class="bg-blue-700 text-white rounded px-2 py-1">+</button>
+    </form>
+  </div>
+
+  <!-- Parametri -->
+  <div class="bg-white rounded-lg shadow p-4 text-sm">
+    <h2 class="font-semibold mb-3">Parametri</h2>
+    <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
+      <span class="text-gray-500">Valore iniziale</span><span>{{ comp.initial_value }}</span>
+      <span class="text-gray-500">n</span><span>{{ comp.n }}</span>
+      <span class="text-gray-500">k</span><span>{{ comp.k }}</span>
+      <span class="text-gray-500">Durata</span><span>{{ comp.duration_minutes }} min</span>
+      <span class="text-gray-500">Tempo jolly</span><span>{{ comp.jolly_time_minutes }} min</span>
+      <span class="text-gray-500">Minuto soglia</span><span>{{ comp.threshold_minute }} min</span>
+      <span class="text-gray-500">Minuto oscuramento</span><span>{{ comp.blackout_minute }} min</span>
+      <span class="text-gray-500">Squadre qualificate</span><span>{{ comp.num_qualified }}</span>
+      <span class="text-gray-500">Posizioni finale</span><span>{{ comp.final_reveal_count }}</span>
+      <span class="text-gray-500">Bonus 1ª consegna</span><span>{{ comp.first_delivery_bonuses|join(', ') }}</span>
+      <span class="text-gray-500">Bonus full</span><span>{{ comp.full_bonuses|join(', ') }}</span>
+      <span class="text-gray-500">Password</span><span>{% if comp.password %}🔒 sì{% else %}no{% endif %}</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Edit team modal -->
+<div id="modal-team" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-xl p-6 w-96">
+    <h3 class="font-semibold mb-4">Modifica squadra</h3>
+    <form id="form-edit-team" method="post" class="space-y-3">
+      <input id="et-number" name="number" type="number" placeholder="N°" class="w-full border rounded px-3 py-2" required>
+      <input id="et-name" name="name" placeholder="Nome" class="w-full border rounded px-3 py-2" required>
+      <input id="et-city" name="city" placeholder="Città" class="w-full border rounded px-3 py-2" required>
+      <label class="flex items-center gap-2"><input id="et-guest" name="is_guest" type="checkbox" value="true"> Ospite</label>
+      <div class="flex gap-2 pt-1">
+        <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800">Salva</button>
+        <button type="button" onclick="document.getElementById('modal-team').classList.add('hidden')"
+                class="px-4 py-2 rounded border hover:bg-gray-50">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit problem modal -->
+<div id="modal-prob" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-xl p-6 w-96">
+    <h3 class="font-semibold mb-4">Modifica problema</h3>
+    <form id="form-edit-prob" method="post" class="space-y-3">
+      <input id="ep-number" name="number" type="number" placeholder="N°" class="w-full border rounded px-3 py-2" required>
+      <input id="ep-name" name="name" placeholder="Nome" class="w-full border rounded px-3 py-2" required>
+      <input id="ep-answer" name="answer" placeholder="Risposta" maxlength="4" class="w-full border rounded px-3 py-2 font-mono" required>
+      <div class="flex gap-2 pt-1">
+        <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800">Salva</button>
+        <button type="button" onclick="document.getElementById('modal-prob').classList.add('hidden')"
+                class="px-4 py-2 rounded border hover:bg-gray-50">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditTeam(id, number, name, city, isGuest) {
+  document.getElementById('form-edit-team').action = '/admin/gara/{{ comp.id }}/squadre/' + id + '/modifica';
+  document.getElementById('et-number').value = number;
+  document.getElementById('et-name').value = name;
+  document.getElementById('et-city').value = city;
+  document.getElementById('et-guest').checked = isGuest;
+  document.getElementById('modal-team').classList.remove('hidden');
+}
+function openEditProb(id, number, name, answer) {
+  document.getElementById('form-edit-prob').action = '/admin/gara/{{ comp.id }}/problemi/' + id + '/modifica';
+  document.getElementById('ep-number').value = number;
+  document.getElementById('ep-name').value = name;
+  document.getElementById('ep-answer').value = answer;
+  document.getElementById('modal-prob').classList.remove('hidden');
+}
+</script>
+{% endblock %}

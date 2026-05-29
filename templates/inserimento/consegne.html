@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Storico consegne — {{ comp.name }}{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-xl font-bold">Storico consegne — {{ comp.name }}</h1>
+  <a href="/inserimento/{{ comp.id }}" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">← Inserimento</a>
+</div>
+
+<div class="bg-white rounded-lg shadow overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-2 text-left">#</th>
+        <th class="px-4 py-2 text-left">Squadra</th>
+        <th class="px-4 py-2 text-left">Problema</th>
+        <th class="px-4 py-2 text-left">Risposta</th>
+        <th class="px-4 py-2 text-left">Esito</th>
+        <th class="px-4 py-2 text-left">Tempo gara</th>
+        <th class="px-4 py-2 text-left">Post-gara</th>
+        <th class="px-4 py-2 text-left">Azioni</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for sub in submissions %}
+      {% set team = teams[sub.team_id] %}
+      {% set prob = problems[sub.problem_id] %}
+      <tr class="{% if sub.is_correct %}bg-green-50{% else %}bg-red-50{% endif %} hover:brightness-95">
+        <td class="px-4 py-2 text-gray-400 font-mono">{{ loop.index }}</td>
+        <td class="px-4 py-2">
+          <span class="font-mono text-gray-400">{{ "%02d"|format(team.number) }}</span>
+          {{ team.name }}
+        </td>
+        <td class="px-4 py-2">
+          <span class="font-mono text-gray-400">{{ "%02d"|format(prob.number) }}</span>
+          {{ prob.name }}
+        </td>
+        <td class="px-4 py-2 font-mono font-bold">{{ sub.answer }}</td>
+        <td class="px-4 py-2">
+          {% if sub.is_correct %}
+            <span class="text-green-700 font-semibold">✓ Corretta</span>
+          {% else %}
+            <span class="text-red-700 font-semibold">✗ Errata</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-2 font-mono text-gray-600">
+          {% set mins = (sub.game_seconds // 60)|int %}
+          {% set secs = (sub.game_seconds % 60)|int %}
+          {{ "%02d:%02d"|format(mins, secs) }}
+        </td>
+        <td class="px-4 py-2 text-center">
+          {% if sub.is_post_game %}<span class="text-orange-500 text-xs font-medium">post</span>{% endif %}
+        </td>
+        <td class="px-4 py-2">
+          <div class="flex gap-2">
+            <a href="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica"
+               class="text-blue-600 hover:underline text-xs">Modifica</a>
+            <form method="post" action="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/elimina"
+                  onsubmit="return confirm('Eliminare questa consegna?')">
+              <button class="text-red-500 hover:underline text-xs">Elimina</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">Nessuna consegna registrata.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

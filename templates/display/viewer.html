@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ disp.name }} — {{ comp.name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; color: #f1f5f9; font-family: sans-serif; }
+    .bar-fill { transition: width 0.8s ease; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<!-- Header fisso -->
+<header class="flex items-center justify-between px-6 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
+  <div class="flex items-center gap-4">
+    <span class="font-bold text-lg" id="hdr-name">{{ comp.name }}</span>
+    <span class="text-slate-400 text-sm" id="hdr-date">{{ comp.date }}</span>
+    <span id="hdr-status" class="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300"></span>
+  </div>
+  <div class="flex items-center gap-4">
+    <span class="text-slate-400 text-sm">{{ disp.name }}</span>
+    <span id="hdr-timer" class="font-mono text-2xl font-bold text-white"></span>
+  </div>
+</header>
+
+<!-- Contenuto principale -->
+<main class="flex-1 overflow-hidden" id="main-content">
+  <div class="flex items-center justify-center h-full text-slate-500">Caricamento...</div>
+</main>
+
+<script>
+const COMP_ID = {{ comp.id }};
+const DISPLAY_ID = {{ disp.id }};
+const API_URL = `/display/api/${COMP_ID}/schermo/${DISPLAY_ID}/stato`;
+let lastView = null;
+let state = null;
+
+function fmtTime(secs) {
+  if (secs == null || secs < 0) secs = 0;
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function statusLabel(s) {
+  return {running:'In corso', paused:'In pausa', ended:'Terminata', created:'Non iniziata'}[s] || s;
+}
+
+async function fetchState() {
+  try {
+    const r = await fetch(API_URL);
+    if (!r.ok) return;
+    state = await r.json();
+    updateHeader();
+    if (state.view !== lastView) {
+      lastView = state.view;
+      render();
+    } else {
+      renderInPlace();
+    }
+  } catch(e) {}
+}
+
+function updateHeader() {
+  document.getElementById('hdr-name').textContent = state.comp_name;
+  document.getElementById('hdr-date').textContent = state.comp_date;
+  document.getElementById('hdr-status').textContent = statusLabel(state.status);
+  const rem = Math.max(0, state.remaining_seconds);
+  document.getElementById('hdr-timer').textContent = fmtTime(rem);
+  document.getElementById('hdr-timer').className =
+    'font-mono text-2xl font-bold ' + (rem < 300 && state.status === 'running' ? 'text-red-400' : 'text-white');
+}
+
+function render() {
+  const main = document.getElementById('main-content');
+  switch(state.view) {
+    case 'test':          main.innerHTML = renderTest(); break;
+    case 'ranking':       main.innerHTML = renderRanking(); break;
+    case 'team_list':     main.innerHTML = renderTeamList(); break;
+    case 'problem_values': main.innerHTML = renderProblemValues(); break;
+    case 'competition_status': main.innerHTML = renderCompStatus(); break;
+    case 'final_ranking': main.innerHTML = renderFinalRanking(); break;
+    default:              main.innerHTML = `<div class="flex items-center justify-center h-full text-slate-500">Vista: ${state.view}</div>`;
+  }
+}
+
+function renderInPlace() {
+  switch(state.view) {
+    case 'ranking':       document.getElementById('main-content').innerHTML = renderRanking(); break;
+    case 'team_list':     document.getElementById('main-content').innerHTML = renderTeamList(); break;
+    case 'problem_values': document.getElementById('main-content').innerHTML = renderProblemValues(); break;
+    case 'competition_status': document.getElementById('main-content').innerHTML = renderCompStatus(); break;
+    case 'final_ranking': document.getElementById('main-content').innerHTML = renderFinalRanking(); break;
+  }
+}
+
+// --- TEST ---
+function renderTest() {
+  return `<div class="flex flex-col items-center justify-center h-full gap-6">
+    <div class="text-6xl font-bold text-slate-300">{{ disp.name }}</div>
+    <div class="font-mono text-2xl text-slate-500">${location.hostname}</div>
+  </div>`;
+}
+
+// --- RANKING ---
+function renderRanking() {
+  if (state.blackout_active && state.status !== 'ended') {
+    return `<div class="flex items-center justify-center h-full">
+      <div class="text-center">
+        <div class="text-8xl mb-6">🔒</div>
+        <div class="text-3xl text-slate-400 font-semibold">Classifica in aggiornamento</div>
+      </div>
+    </div>`;
+  }
+  const teams = state.teams;
+  const maxScore = Math.max(...teams.map(t => t.total), 1);
+  const nq = state.num_qualified;
+  let html = `<div class="h-full overflow-y-auto px-6 py-4">
+    <h2 class="text-2xl font-bold mb-4 text-slate-200">Classifica</h2>
+    <div class="space-y-2">`;
+  teams.forEach((t, i) => {
+    const isGuest = t.is_guest;
+    const pct = Math.max(2, (t.total / maxScore) * 100);
+    const showLine = !isGuest && nq > 0 && i === nq - 1;
+    const barColor = isGuest ? 'bg-orange-500' : 'bg-blue-500';
+    html += `
+      ${showLine && i < teams.length - 1 ? `<div class="border-t-2 border-red-500 my-1"></div>` : ''}
+      <div class="flex items-center gap-3">
+        <span class="text-slate-400 w-8 text-right font-mono text-lg">${isGuest ? '—' : i+1}</span>
+        <div class="flex-1">
+          <div class="flex justify-between text-sm mb-0.5">
+            <span class="${isGuest ? 'text-orange-300' : 'text-slate-200'} font-semibold">
+              ${t.name} <span class="text-slate-500 font-normal text-xs">${t.city}</span>
+              ${isGuest ? '<span class="text-orange-400 text-xs ml-1">ospite</span>' : ''}
+            </span>
+            <span class="font-mono font-bold text-slate-100">${Math.round(t.total)}</span>
+          </div>
+          <div class="h-6 bg-slate-700 rounded overflow-hidden">
+            <div class="${barColor} h-full rounded bar-fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+// --- TEAM LIST ---
+function renderTeamList() {
+  const teams = [...state.teams].sort((a,b) => a.number - b.number);
+  const maxScore = Math.max(...teams.map(t => t.total), 1);
+  let html = `<div class="h-full overflow-y-auto px-6 py-4">
+    <h2 class="text-2xl font-bold mb-4 text-slate-200">Elenco squadre</h2>
+    <div class="space-y-2">`;
+  teams.forEach(t => {
+    const pct = Math.max(2, (t.total / maxScore) * 100);
+    const barColor = t.is_guest ? 'bg-orange-500' : 'bg-blue-500';
+    html += `<div class="flex items-center gap-3">
+      <span class="text-slate-400 w-8 text-right font-mono">${String(t.number).padStart(2,'0')}</span>
+      <div class="flex-1">
+        <div class="flex justify-between text-sm mb-0.5">
+          <span class="${t.is_guest ? 'text-orange-300':'text-slate-200'} font-semibold">
+            ${t.name} <span class="text-slate-500 font-normal text-xs">${t.city}</span>
+          </span>
+          <span class="font-mono font-bold">${Math.round(t.total)}</span>
+        </div>
+        <div class="h-5 bg-slate-700 rounded overflow-hidden">
+          <div class="${barColor} h-full rounded bar-fill" style="width:${pct}%"></div>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+// --- PROBLEM VALUES ---
+function renderProblemValues() {
+  const probs = state.problems;
+  const maxVal = Math.max(...probs.map(p => p.value), 1);
+  let html = `<div class="h-full overflow-y-auto px-6 py-4">
+    <h2 class="text-2xl font-bold mb-4 text-slate-200">Valori dei problemi</h2>
+    <div class="space-y-3">`;
+  probs.forEach(p => {
+    const pct = Math.max(2, (p.value / maxVal) * 100);
+    html += `<div class="flex items-center gap-3">
+      <span class="text-slate-400 w-8 text-right font-mono text-sm">${String(p.number).padStart(2,'0')}</span>
+      <div class="flex-1">
+        <div class="flex justify-between text-sm mb-0.5">
+          <span class="text-slate-200 font-semibold">${p.name}</span>
+          <span class="font-mono font-bold text-yellow-300">${Math.round(p.value)}</span>
+        </div>
+        <div class="h-6 bg-slate-700 rounded overflow-hidden">
+          <div class="bg-yellow-500 h-full rounded bar-fill" style="width:${pct}%"></div>
+        </div>
+      </div>
+    </div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+// --- COMPETITION STATUS ---
+function renderCompStatus() {
+  const teams = [...state.teams].sort((a,b) => a.number - b.number);
+  const probs = state.problems;
+  const n = state.n;
+
+  let html = `<div class="h-full overflow-auto p-4">
+    <div class="flex justify-between items-start mb-3">
+      <h2 class="text-xl font-bold text-slate-200">Stato gara</h2>
+      <span class="text-slate-400 text-sm font-mono">n = ${n}</span>
+    </div>
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="text-slate-400 text-xs">
+          <th class="text-left py-1 pr-3 font-medium sticky left-0 bg-slate-900">Squadra</th>`;
+  probs.forEach(p => {
+    html += `<th class="text-center px-1 py-1 font-medium min-w-[60px]">
+      <div class="text-xs">${String(p.number).padStart(2,'0')}</div>
+      <div class="text-yellow-400 font-mono">${Math.round(p.value)}</div>
+    </th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  teams.forEach((t, ri) => {
+    const rowBg = ri % 2 === 0 ? 'bg-slate-800' : 'bg-slate-850';
+    const teamColor = t.is_guest ? 'text-orange-300' : 'text-slate-200';
+    html += `<tr class="${rowBg}">
+      <td class="py-1.5 pr-3 font-semibold ${teamColor} whitespace-nowrap sticky left-0 ${rowBg}">
+        <span class="font-mono text-slate-500 text-xs mr-1">${String(t.number).padStart(2,'0')}</span>
+        ${t.name} <span class="text-slate-500 text-xs font-normal">${t.city}</span>
+      </td>`;
+    probs.forEach(p => {
+      const solved = t.problem_solved[p.id];
+      const errors = t.problem_errors[p.id] || 0;
+      const contrib = t.problem_contributions[p.id] || 0;
+      const isJolly = t.jolly_problem_id === p.id;
+      let bg = 'bg-slate-700';
+      let text = '';
+      if (solved) { bg = 'bg-green-800'; }
+      else if (errors > 0) { bg = 'bg-red-900'; }
+      if (errors > 0 || solved) {
+        text = Math.round(contrib);
+      }
+      html += `<td class="px-1 py-1 text-center">
+        <div class="${bg} rounded px-1 py-1 ${isJolly ? 'ring-2 ring-yellow-400' : ''} min-h-[32px] flex items-center justify-center">
+          <span class="font-mono text-xs font-bold ${solved ? 'text-green-300' : 'text-red-300'}">${text !== '' ? (text > 0 ? '+'+text : text) : ''}</span>
+        </div>
+      </td>`;
+    });
+    html += `</tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  // Column footers (solver counts)
+  html += `<div class="flex mt-2 gap-1">
+    <div class="pr-3 text-slate-500 text-xs" style="min-width:120px">Risolutori:</div>`;
+  probs.forEach(p => {
+    const count = Math.min(p.num_solvers, n);
+    let bg = 'bg-slate-700 text-slate-400';
+    if (count >= n) bg = 'bg-red-800 text-red-200';
+    else if (count >= 1) bg = 'bg-yellow-800 text-yellow-200';
+    html += `<div class="min-w-[60px] text-center px-1">
+      <span class="text-xs font-mono font-bold px-2 py-0.5 rounded ${bg}">${count}</span>
+    </div>`;
+  });
+  html += `</div></div>`;
+  return html;
+}
+
+// --- FINAL RANKING ---
+function renderFinalRanking() {
+  if (!state.final_locked) {
+    return `<div class="flex items-center justify-center h-full text-slate-500 text-xl">
+      Classifica finale non ancora disponibile.
+    </div>`;
+  }
+  const teams = state.teams; // already ranked
+  const nonGuests = teams.filter(t => !t.is_guest);
+  const revealed = state.revealed_positions;
+  const total = nonGuests.length;
+  // Show from bottom: positions revealed from the end
+  // Hidden positions shown as placeholder
+  const nq = state.num_qualified;
+
+  let html = `<div class="h-full overflow-y-auto px-8 py-6">
+    <h2 class="text-3xl font-bold mb-6 text-center text-slate-200">🏆 Classifica Finale</h2>
+    <div class="space-y-3 max-w-3xl mx-auto">`;
+
+  // Show positions from bottom up, only revealed ones
+  // Position 1 = index 0 in ranked array (best)
+  // Reveal from bottom: last position first
+  const revealedFrom = total - revealed; // index from which we show
+
+  for (let i = 0; i < total; i++) {
+    const t = nonGuests[i];
+    const pos = i + 1;
+    if (i < revealedFrom) {
+      // Not yet revealed
+      html += `<div class="flex items-center gap-4 bg-slate-800 rounded-xl px-6 py-4 opacity-40">
+        <span class="text-4xl font-bold text-slate-500 w-12 text-right">${pos}</span>
+        <div class="flex-1 h-8 bg-slate-700 rounded"></div>
+      </div>`;
+    } else {
+      const isQualified = pos <= nq;
+      const borderColor = isQualified ? 'border-l-4 border-yellow-400' : '';
+      html += `<div class="flex items-center gap-4 bg-slate-700 rounded-xl px-6 py-4 ${borderColor}">
+        <span class="text-4xl font-bold ${pos <= 3 ? 'text-yellow-400' : 'text-slate-400'} w-12 text-right">${pos}</span>
+        <div class="flex-1">
+          <div class="font-bold text-xl text-slate-100">${t.name}</div>
+          <div class="text-slate-400 text-sm">${t.city}</div>
+        </div>
+        <span class="font-mono text-2xl font-bold text-slate-200">${Math.round(t.total)}</span>
+        ${isQualified ? '<span class="text-yellow-400 text-sm font-semibold ml-2">✓ qualif.</span>' : ''}
+      </div>`;
+    }
+  }
+
+  // Guests at the bottom
+  const guests = teams.filter(t => t.is_guest);
+  if (guests.length > 0 && revealed > 0) {
+    html += `<div class="border-t border-slate-600 my-4"></div>`;
+    guests.forEach(t => {
+      html += `<div class="flex items-center gap-4 bg-slate-800 rounded-xl px-6 py-3 opacity-60">
+        <span class="text-2xl font-bold text-orange-400 w-12 text-right">—</span>
+        <div class="flex-1">
+          <div class="font-semibold text-orange-300">${t.name} <span class="text-orange-500 text-xs">ospite</span></div>
+          <div class="text-slate-400 text-sm">${t.city}</div>
+        </div>
+        <span class="font-mono text-xl font-bold text-slate-400">${Math.round(t.total)}</span>
+      </div>`;
+    });
+  }
+
+  html += `</div></div>`;
+  return html;
+}
+
+// Poll every second
+fetchState();
+setInterval(fetchState, 1500);
+</script>
+</body>
+</html>

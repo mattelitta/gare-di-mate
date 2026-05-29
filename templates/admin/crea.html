@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Nuova gara — Admin{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold mb-6">Nuova gara</h1>
+  <form method="post" action="/admin/crea" class="bg-white rounded-lg shadow p-6 space-y-4">
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="col-span-2">
+        <label class="block text-sm font-medium mb-1">Nome gara</label>
+        <input name="name" required class="w-full border rounded px-3 py-2" placeholder="Gare a Squadre 2025">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Data</label>
+        <input name="date" type="date" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Password (opzionale)</label>
+        <input name="password" type="password" class="w-full border rounded px-3 py-2" placeholder="Lascia vuoto per nessuna">
+      </div>
+    </div>
+
+    <hr class="my-2">
+    <h2 class="font-semibold text-gray-700">Parametri di punteggio</h2>
+
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Valore iniziale problemi</label>
+        <input name="initial_value" type="number" value="40" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">n (squadre per blocco tempo)</label>
+        <input name="n" type="number" value="2" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">k (errori per valore)</label>
+        <input name="k" type="number" value="1" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div class="col-span-3">
+        <label class="block text-sm font-medium mb-1">Bonus prima consegna (virgola separati)</label>
+        <input name="first_delivery_bonuses" value="20,15,10,5,3" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div class="col-span-3">
+        <label class="block text-sm font-medium mb-1">Bonus full (virgola separati)</label>
+        <input name="full_bonuses" value="50,30,20,15,10" required class="w-full border rounded px-3 py-2">
+      </div>
+    </div>
+
+    <hr class="my-2">
+    <h2 class="font-semibold text-gray-700">Parametri temporali (minuti)</h2>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Durata gara</label>
+        <input name="duration_minutes" type="number" value="90" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Tempo jolly</label>
+        <input name="jolly_time_minutes" type="number" value="30" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Minuto soglia (valori si bloccano)</label>
+        <input name="threshold_minute" type="number" value="70" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Minuto oscuramento classifica</label>
+        <input name="blackout_minute" type="number" value="60" required class="w-full border rounded px-3 py-2">
+      </div>
+    </div>
+
+    <hr class="my-2">
+    <h2 class="font-semibold text-gray-700">Classifica</h2>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Squadre qualificate</label>
+        <input name="num_qualified" type="number" value="0" min="0" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Posizioni da rivelare (classifica finale)</label>
+        <input name="final_reveal_count" type="number" value="3" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+    </div>
+
+    <div class="flex gap-3 pt-2">
+      <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded hover:bg-blue-800">Crea gara</button>
+      <a href="/admin/" class="px-6 py-2 rounded border hover:bg-gray-50">Annulla</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

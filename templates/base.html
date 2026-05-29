@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Gare di Mate{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-900">
+  <nav class="bg-blue-700 text-white px-6 py-3 flex items-center gap-6 shadow">
+    <span class="font-bold text-lg">🔢 Gare di Mate</span>
+    <a href="/admin/" class="hover:underline text-sm">Admin</a>
+    <a href="/inserimento/" class="hover:underline text-sm">Inserimento</a>
+    <a href="/regia/" class="hover:underline text-sm">Regia</a>
+    <a href="/display/" class="hover:underline text-sm">Display</a>
+  </nav>
+  <main class="p-6 max-w-6xl mx-auto">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

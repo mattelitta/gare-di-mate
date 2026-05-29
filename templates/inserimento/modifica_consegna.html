@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Modifica consegna — {{ comp.name }}{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+  <h1 class="text-xl font-bold mb-6">Modifica consegna</h1>
+  <div class="bg-white rounded-lg shadow p-6">
+    <form method="post" action="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Squadra</label>
+        <select name="team_id" class="w-full border rounded px-3 py-2" required>
+          {% for team in teams %}
+          <option value="{{ team.id }}" {% if team.id == sub.team_id %}selected{% endif %}>
+            {{ "%02d"|format(team.number) }} — {{ team.name }} ({{ team.city }})
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Problema</label>
+        <select name="problem_id" class="w-full border rounded px-3 py-2" required>
+          {% for prob in problems %}
+          <option value="{{ prob.id }}" {% if prob.id == sub.problem_id %}selected{% endif %}>
+            {{ "%02d"|format(prob.number) }} — {{ prob.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Risposta</label>
+        <input name="answer" type="text" maxlength="4" value="{{ sub.answer }}"
+               class="w-full border-2 rounded-lg px-4 py-3 text-3xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded hover:bg-blue-800">Salva</button>
+        <a href="/inserimento/{{ comp.id }}/consegne" class="px-6 py-2 rounded border hover:bg-gray-50">Annulla</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
