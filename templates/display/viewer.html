@@ -8,20 +8,23 @@
   <style>
     body { background: #0f172a; color: #f1f5f9; font-family: sans-serif; }
     .bar-fill { transition: width 0.8s ease; }
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .reveal-anim { animation: fadeSlideIn 0.5s ease both; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
 <!-- Header fisso -->
-<header class="flex items-center justify-between px-6 py-3 bg-slate-800 border-b border-slate-700 shrink-0">
+<header class="flex items-center justify-between px-6 py-2 bg-slate-800 border-b border-slate-700 shrink-0">
   <div class="flex items-center gap-4">
-    <span class="font-bold text-lg" id="hdr-name">{{ comp.name }}</span>
+    <span class="font-bold text-xl" id="hdr-name">{{ comp.name }}</span>
     <span class="text-slate-400 text-sm" id="hdr-date">{{ comp.date }}</span>
     <span id="hdr-status" class="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300"></span>
   </div>
-  <div class="flex items-center gap-4">
-    <span id="hdr-timer" class="font-mono text-2xl font-bold text-white"></span>
-  </div>
+  <span id="hdr-timer" class="font-mono text-4xl font-bold text-white tabular-nums"></span>
 </header>
 
 <!-- Contenuto principale -->
@@ -35,6 +38,7 @@ const DISPLAY_ID = {{ disp.id }};
 const API_URL = `/display/api/${COMP_ID}/schermo/${DISPLAY_ID}/stato`;
 let lastView = null;
 let state = null;
+let lastRevealedPositions = 0;
 
 function fmtTime(secs) {
   if (secs == null || secs < 0) secs = 0;
@@ -67,31 +71,32 @@ function updateHeader() {
   document.getElementById('hdr-date').textContent = state.comp_date;
   document.getElementById('hdr-status').textContent = statusLabel(state.status);
   const rem = Math.max(0, state.remaining_seconds);
+  const urgent = rem < 300 && state.status === 'running';
   document.getElementById('hdr-timer').textContent = fmtTime(rem);
   document.getElementById('hdr-timer').className =
-    'font-mono text-2xl font-bold ' + (rem < 300 && state.status === 'running' ? 'text-red-400' : 'text-white');
+    'font-mono text-4xl font-bold tabular-nums ' + (urgent ? 'text-red-400' : 'text-white');
 }
 
 function render() {
   const main = document.getElementById('main-content');
   switch(state.view) {
-    case 'test':          main.innerHTML = renderTest(); break;
-    case 'ranking':       main.innerHTML = renderRanking(); break;
-    case 'team_list':     main.innerHTML = renderTeamList(); break;
-    case 'problem_values': main.innerHTML = renderProblemValues(); break;
-    case 'competition_status': main.innerHTML = renderCompStatus(); break;
-    case 'final_ranking': main.innerHTML = renderFinalRanking(); break;
-    default:              main.innerHTML = `<div class="flex items-center justify-center h-full text-slate-500">Vista: ${state.view}</div>`;
+    case 'test':              main.innerHTML = renderTest(); break;
+    case 'ranking':           main.innerHTML = renderRanking(); break;
+    case 'team_list':         main.innerHTML = renderTeamList(); break;
+    case 'problem_values':    main.innerHTML = renderProblemValues(); break;
+    case 'competition_status':main.innerHTML = renderCompStatus(); break;
+    case 'final_ranking':     main.innerHTML = renderFinalRanking(); break;
+    default: main.innerHTML = `<div class="flex items-center justify-center h-full text-slate-500">Vista: ${state.view}</div>`;
   }
 }
 
 function renderInPlace() {
   switch(state.view) {
-    case 'ranking':       document.getElementById('main-content').innerHTML = renderRanking(); break;
-    case 'team_list':     document.getElementById('main-content').innerHTML = renderTeamList(); break;
-    case 'problem_values': document.getElementById('main-content').innerHTML = renderProblemValues(); break;
-    case 'competition_status': document.getElementById('main-content').innerHTML = renderCompStatus(); break;
-    case 'final_ranking': document.getElementById('main-content').innerHTML = renderFinalRanking(); break;
+    case 'ranking':           document.getElementById('main-content').innerHTML = renderRanking(); break;
+    case 'team_list':         document.getElementById('main-content').innerHTML = renderTeamList(); break;
+    case 'problem_values':    document.getElementById('main-content').innerHTML = renderProblemValues(); break;
+    case 'competition_status':document.getElementById('main-content').innerHTML = renderCompStatus(); break;
+    case 'final_ranking':     document.getElementById('main-content').innerHTML = renderFinalRanking(); break;
   }
 }
 
@@ -103,18 +108,22 @@ function renderTest() {
   </div>`;
 }
 
-// --- Helper: riga compatta con barra e testo sovrapposto ---
+// --- Helper: riga compatta con punteggio a sinistra e barra a destra ---
 function rigaBarra({ label, sublabel, rank, barColor, pct, value, valueColor, separator }) {
   return `
-    ${separator ? '<div class="border-t-2 border-red-500 my-0.5"></div>' : ''}
+    ${separator ? `
+      <div class="flex items-center gap-2 my-1">
+        <div class="w-12 shrink-0"></div>
+        <div class="flex-1 border-t-4 border-red-500 opacity-80"></div>
+      </div>` : ''}
     <div class="flex items-center gap-2">
-      <span class="w-8 text-right font-mono text-sm text-slate-400 shrink-0">${rank}</span>
-      <div class="w-44 shrink-0 leading-tight">
-        <span class="font-semibold text-sm ${label.color}">${label.text}</span>
+      <span class="w-12 text-right font-mono text-xl font-bold text-slate-300 shrink-0">${rank}</span>
+      <div class="w-48 shrink-0 leading-tight">
+        <span class="font-semibold text-base ${label.color}">${label.text}</span>
         <span class="text-slate-500 text-xs ml-1">${sublabel}</span>
       </div>
       <span class="w-16 text-right font-mono font-bold text-xl ${valueColor} shrink-0">${value}</span>
-      <div class="flex-1 rounded overflow-hidden bg-slate-700" style="height:1.6rem">
+      <div class="flex-1 rounded overflow-hidden bg-slate-700" style="height:2rem">
         <div class="${barColor} h-full rounded bar-fill" style="width:${pct}%"></div>
       </div>
     </div>`;
@@ -123,10 +132,13 @@ function rigaBarra({ label, sublabel, rank, barColor, pct, value, valueColor, se
 // --- RANKING ---
 function renderRanking() {
   if (state.blackout_active && state.status !== 'ended') {
+    const rem = Math.max(0, state.remaining_seconds);
     return `<div class="flex items-center justify-center h-full">
       <div class="text-center">
         <div class="text-8xl mb-6">🔒</div>
-        <div class="text-3xl text-slate-400 font-semibold">Classifica in aggiornamento</div>
+        <div class="text-3xl text-slate-300 font-semibold mb-3">Classifica oscurata</div>
+        <div class="text-slate-500 text-lg">La classifica sarà visibile al termine della gara</div>
+        <div class="font-mono text-4xl font-bold text-slate-400 mt-4">${fmtTime(rem)}</div>
       </div>
     </div>`;
   }
@@ -210,8 +222,6 @@ function renderCompStatus() {
   const probs = state.problems;
   const n = state.n;
 
-  // Palette alternata per le caselle: riga pari più chiara, dispari più scura
-  // Vuota, errata, corretta — due toni per ciascuna
   const cellBg = {
     empty:   ['bg-slate-700', 'bg-slate-600'],
     error:   ['bg-red-900',   'bg-red-800'],
@@ -226,14 +236,14 @@ function renderCompStatus() {
           <th class="text-left py-1 pr-3 font-medium sticky left-0 bg-slate-900">Squadra</th>`;
   probs.forEach(p => {
     html += `<th class="text-center px-1 py-2 font-medium min-w-[60px]">
-      <div class="text-sm font-bold text-slate-300">${String(p.number).padStart(2,'0')}</div>
+      <div class="text-sm font-bold text-slate-300">${String(p.number).padStart(2,'00')}</div>
       <div class="text-base text-yellow-400 font-mono font-bold">${Math.round(p.value)}</div>
     </th>`;
   });
   html += `</tr></thead><tbody>`;
 
   teams.forEach((t, ri) => {
-    const tone = ri % 2;   // 0 = pari (chiaro), 1 = dispari (scuro)
+    const tone = ri % 2;
     const rowBg = tone === 0 ? 'bg-slate-800' : 'bg-slate-700';
     const teamColor = t.is_guest ? 'text-orange-300' : 'text-slate-200';
     html += `<tr class="${rowBg}">
@@ -261,7 +271,6 @@ function renderCompStatus() {
     html += `</tr>`;
   });
 
-  // Riga risolutori in tfoot — allineata automaticamente alle colonne della tabella
   html += `</tbody><tfoot><tr>
     <td class="py-1 pr-3 text-slate-400 text-sm font-medium sticky left-0 bg-slate-900">
       Risolutori <span class="font-mono text-slate-500 ml-1">(n=${n})</span>
@@ -286,37 +295,41 @@ function renderFinalRanking() {
       Classifica finale non ancora disponibile.
     </div>`;
   }
-  const teams = state.teams; // already ranked
+  const teams = state.teams;
   const nonGuests = teams.filter(t => !t.is_guest);
   const revealed = state.revealed_positions;
   const total = nonGuests.length;
-  // Show from bottom: positions revealed from the end
-  // Hidden positions shown as placeholder
   const nq = state.num_qualified;
+  const revealedFrom = total - revealed;
+
+  // Traccia la posizione appena rivelata per animarla
+  const justRevealedIdx = (revealed > lastRevealedPositions) ? revealedFrom : -1;
+  lastRevealedPositions = revealed;
 
   let html = `<div class="h-full overflow-y-auto px-8 py-6">
     <h2 class="text-3xl font-bold mb-6 text-center text-slate-200">🏆 Classifica Finale</h2>
     <div class="space-y-3 max-w-3xl mx-auto">`;
 
-  // Show positions from bottom up, only revealed ones
-  // Position 1 = index 0 in ranked array (best)
-  // Reveal from bottom: last position first
-  const revealedFrom = total - revealed; // index from which we show
-
   for (let i = 0; i < total; i++) {
     const t = nonGuests[i];
     const pos = i + 1;
+    const isJustRevealed = (i === justRevealedIdx);
+
     if (i < revealedFrom) {
-      // Not yet revealed
-      html += `<div class="flex items-center gap-4 bg-slate-800 rounded-xl px-6 py-4 opacity-40">
+      // Placeholder non ancora rivelato
+      html += `<div class="flex items-center gap-4 bg-slate-800 rounded-xl px-6 py-4 opacity-30">
         <span class="text-4xl font-bold text-slate-500 w-12 text-right">${pos}</span>
         <div class="flex-1 h-8 bg-slate-700 rounded"></div>
       </div>`;
     } else {
-      const isQualified = pos <= nq;
-      const borderColor = isQualified ? 'border-l-4 border-yellow-400' : '';
-      html += `<div class="flex items-center gap-4 bg-slate-700 rounded-xl px-6 py-4 ${borderColor}">
-        <span class="text-4xl font-bold ${pos <= 3 ? 'text-yellow-400' : 'text-slate-400'} w-12 text-right">${pos}</span>
+      const isQualified = nq > 0 && pos <= nq;
+      // Spazio visivo tra qualificate e non
+      const gapBefore = isQualified && pos === nq && i + 1 < total && (i + 1) >= revealedFrom
+        ? '' : (!isQualified && pos === nq + 1 && i >= revealedFrom ? 'mt-6' : '');
+      const border = isQualified ? 'border-l-4 border-yellow-400' : '';
+      const animClass = isJustRevealed ? 'reveal-anim' : '';
+      html += `<div class="flex items-center gap-4 bg-slate-700 rounded-xl px-6 py-4 ${border} ${gapBefore} ${animClass}">
+        <span class="text-4xl font-bold ${pos <= 3 ? 'text-yellow-400' : 'text-slate-300'} w-12 text-right">${pos}</span>
         <div class="flex-1">
           <div class="font-bold text-xl text-slate-100">${t.name}</div>
           <div class="text-slate-400 text-sm">${t.city}</div>
@@ -327,7 +340,7 @@ function renderFinalRanking() {
     }
   }
 
-  // Guests at the bottom
+  // Ospiti in fondo
   const guests = teams.filter(t => t.is_guest);
   if (guests.length > 0 && revealed > 0) {
     html += `<div class="border-t border-slate-600 my-4"></div>`;
@@ -347,7 +360,7 @@ function renderFinalRanking() {
   return html;
 }
 
-// Poll every second
+// Poll ogni 1.5s
 fetchState();
 setInterval(fetchState, 1500);
 </script>
