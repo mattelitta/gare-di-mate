@@ -30,7 +30,7 @@ def check_password(comp: Competition, request: Request) -> bool:
 @router.get("/", response_class=HTMLResponse)
 async def display_home(request: Request, db: Session = Depends(get_db)):
     comps = db.query(Competition).filter(
-        Competition.status.in_(["running", "paused", "ended"])
+        Competition.status.in_(["created", "running", "paused", "ended"])
     ).order_by(Competition.created_at.desc()).all()
     return templates.TemplateResponse("display/home.html", {"request": request, "comps": comps})
 
