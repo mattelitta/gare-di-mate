@@ -120,6 +120,27 @@ async def regia_elimina_display(
     return RedirectResponse(f"/regia/{comp_id}", status_code=303)
 
 
+@router.post("/{comp_id}/display/{display_id}/scala")
+async def regia_set_scala(
+    request: Request,
+    comp_id: int,
+    display_id: int,
+    scale: int = Form(...),
+    db: Session = Depends(get_db),
+):
+    comp = db.get(Competition, comp_id)
+    if not comp:
+        raise HTTPException(status_code=404)
+    if comp.password and not check_password(comp, request):
+        raise HTTPException(status_code=403)
+    disp = db.get(Display, display_id)
+    if not disp or disp.competition_id != comp_id:
+        raise HTTPException(status_code=404)
+    disp.text_scale = max(1, min(5, scale))
+    db.commit()
+    return RedirectResponse(f"/regia/{comp_id}", status_code=303)
+
+
 @router.post("/{comp_id}/rivela")
 async def regia_rivela(request: Request, comp_id: int, db: Session = Depends(get_db)):
     comp = db.get(Competition, comp_id)

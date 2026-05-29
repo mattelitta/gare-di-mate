@@ -79,6 +79,24 @@
         </button>
         {% endfor %}
       </form>
+      <!-- Scala testo -->
+      <div class="flex items-center gap-1 border-l pl-3 ml-1">
+        <span class="text-xs text-gray-400">Scala:</span>
+        {% set sc = disp.text_scale or 3 %}
+        <form method="post" action="/regia/{{ comp.id }}/display/{{ disp.id }}/scala" class="inline-flex items-center gap-0.5">
+          <button name="scale" value="{{ sc - 1 }}"
+                  class="w-6 h-6 rounded text-sm font-bold leading-none
+                    {% if sc <= 1 %}bg-gray-50 text-gray-300 cursor-not-allowed
+                    {% else %}bg-gray-200 hover:bg-gray-300{% endif %}"
+                  {% if sc <= 1 %}disabled{% endif %}>−</button>
+          <span class="text-sm font-bold font-mono w-5 text-center text-gray-700">{{ sc }}</span>
+          <button name="scale" value="{{ sc + 1 }}"
+                  class="w-6 h-6 rounded text-sm font-bold leading-none
+                    {% if sc >= 5 %}bg-gray-50 text-gray-300 cursor-not-allowed
+                    {% else %}bg-gray-200 hover:bg-gray-300{% endif %}"
+                  {% if sc >= 5 %}disabled{% endif %}>+</button>
+        </form>
+      </div>
       <form method="post" action="/regia/{{ comp.id }}/display/{{ disp.id }}/elimina"
             onsubmit="return confirm('Eliminare display {{ disp.name }}?')">
         <button class="text-red-400 hover:text-red-600 text-sm">✕</button>

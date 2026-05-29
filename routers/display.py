@@ -168,6 +168,7 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
 
     return {
         "view": disp.current_view,
+        "text_scale": disp.text_scale if disp.text_scale else 3,
         "comp_name": comp.name,
         "comp_date": comp.date,
         "status": comp.status,

@@ -1,10 +1,8 @@
 import asyncio
-import json
 from contextlib import asynccontextmanager
-from datetime import datetime
 
 import uvicorn
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -30,51 +28,8 @@ app.include_router(regia.router, prefix="/regia")
 app.include_router(display.router, prefix="/display")
 
 
-# --- WebSocket connection manager ---
-class ConnectionManager:
-    def __init__(self):
-        self._connections: dict[str, list[WebSocket]] = {}
-
-    async def connect(self, ws: WebSocket, channel: str):
-        await ws.accept()
-        self._connections.setdefault(channel, []).append(ws)
-
-    def disconnect(self, ws: WebSocket, channel: str):
-        if channel in self._connections:
-            self._connections[channel] = [c for c in self._connections[channel] if c != ws]
-
-    async def broadcast(self, channel: str, data: dict):
-        msg = json.dumps(data)
-        dead = []
-        for ws in self._connections.get(channel, []):
-            try:
-                await ws.send_text(msg)
-            except Exception:
-                dead.append(ws)
-        for ws in dead:
-            self.disconnect(ws, channel)
-
-    async def broadcast_all(self, data: dict):
-        for channel in list(self._connections.keys()):
-            await self.broadcast(channel, data)
-
-
-manager = ConnectionManager()
-
-
-@app.websocket("/ws/{competition_id}/{channel}")
-async def websocket_endpoint(ws: WebSocket, competition_id: int, channel: str):
-    key = f"{competition_id}:{channel}"
-    await manager.connect(ws, key)
-    try:
-        while True:
-            await ws.receive_text()  # keep alive
-    except WebSocketDisconnect:
-        manager.disconnect(ws, key)
-
-
 async def broadcast_loop():
-    """Aggiorna la cache ogni secondo per le gare in corso e notifica i client."""
+    """Aggiorna la cache ogni secondo per le gare in corso."""
     while True:
         await asyncio.sleep(1)
         db = SessionLocal()
@@ -83,7 +38,6 @@ async def broadcast_loop():
             from database import load_comp_full
             from engine import compute_state
             from cache import state_cache
-            # Solo gare attive: il valore dei problemi cresce al minuto
             comp_ids = [
                 c.id for c in db.query(Competition.id)
                 .filter(Competition.status == "running").all()
@@ -93,7 +47,6 @@ async def broadcast_loop():
                 if comp:
                     prob_states, team_scores = compute_state(comp)
                     state_cache.set(comp_id, (prob_states, team_scores))
-                    await manager.broadcast(f"{comp_id}:state", {"type": "tick"})
         finally:
             db.close()
 

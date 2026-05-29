@@ -24,13 +24,13 @@
     <form method="post" action="/inserimento/{{ comp.id }}/jolly" class="space-y-3">
       <div>
         <label class="block text-sm font-medium mb-1">ID Squadra</label>
-        <input name="team_number" type="text" maxlength="2" pattern="\d{1,2}"
+        <input name="team_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
                placeholder="01" autofocus
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">ID Problema</label>
-        <input name="problem_number" type="text" maxlength="2" pattern="\d{1,2}"
+        <input name="problem_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
                placeholder="01"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
@@ -68,19 +68,19 @@
     <form @submit.prevent="apriConferma($event)" class="space-y-3">
       <div>
         <label class="block text-sm font-medium mb-1">ID Squadra</label>
-        <input x-model="squadra" name="team_number" type="text" maxlength="2" pattern="\d{1,2}"
+        <input x-model="squadra" name="team_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
                placeholder="01"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">ID Problema</label>
-        <input x-model="problema" name="problem_number" type="text" maxlength="2" pattern="\d{1,2}"
+        <input x-model="problema" name="problem_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
                placeholder="01"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Risposta</label>
-        <input x-model="risposta" name="answer" type="text" maxlength="4" pattern="\d{4}"
+        <input x-model="risposta" name="answer" type="text" inputmode="numeric" maxlength="4" pattern="\d{4}"
                placeholder="0000"
                class="w-full border-2 rounded-lg px-4 py-3 text-3xl font-mono text-center tracking-widest focus:border-green-500 outline-none">
       </div>

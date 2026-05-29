@@ -47,7 +47,6 @@ class TeamScore:
     problem_errors: dict[int, int]           # problem_id -> num errori
     problem_solved: dict[int, bool]          # problem_id -> risolto?
     jolly_problem_id: int | None
-    first_delivery_bonuses_earned: dict[int, dict[int, int]]  # problem_id -> {team_id -> bonus}
     full_bonus_earned: int
     penalty_total: int
 
@@ -238,7 +237,6 @@ def compute_state(
             problem_errors=prob_errors_out,
             problem_solved=prob_solved_out,
             jolly_problem_id=jolly_pid,
-            first_delivery_bonuses_earned=first_delivery_bonus_map,
             full_bonus_earned=full_bonus,
             penalty_total=penalty,
         )

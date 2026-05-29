@@ -22,6 +22,22 @@ def get_db():
 def init_db():
     from models import Competition, Team, Problem, Submission, JollyChoice, Penalty, Display  # noqa
     Base.metadata.create_all(bind=engine)
+    _migrate_db()
+
+
+def _migrate_db():
+    """Aggiunge colonne mancanti per migrazioni incrementali (idempotente)."""
+    from sqlalchemy import text
+    migrations = [
+        "ALTER TABLE displays ADD COLUMN text_scale INTEGER DEFAULT 3",
+    ]
+    with engine.connect() as conn:
+        for stmt in migrations:
+            try:
+                conn.execute(text(stmt))
+                conn.commit()
+            except Exception:
+                pass  # colonna già presente
 
 
 def load_comp_full(comp_id: int, db):

@@ -7,7 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from cache import state_cache
-from database import get_db
+from database import get_db, load_comp_full
 from models import Competition, Display, JollyChoice, Penalty, Problem, Submission, Team
 
 router = APIRouter()
@@ -60,6 +60,10 @@ async def admin_crea(
         fb = [int(x.strip()) for x in full_bonuses.split(",") if x.strip()]
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato bonus non valido")
+    if threshold_minute > duration_minutes:
+        raise HTTPException(status_code=400, detail=f"Minuto soglia ({threshold_minute}) superiore alla durata ({duration_minutes} min)")
+    if blackout_minute > duration_minutes:
+        raise HTTPException(status_code=400, detail=f"Minuto oscuramento ({blackout_minute}) superiore alla durata ({duration_minutes} min)")
 
     comp = Competition(
         name=name,
@@ -133,6 +137,10 @@ async def admin_modifica(
         fb = [int(x.strip()) for x in full_bonuses.split(",") if x.strip()]
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato bonus non valido")
+    if threshold_minute > duration_minutes:
+        raise HTTPException(status_code=400, detail=f"Minuto soglia ({threshold_minute}) superiore alla durata ({duration_minutes} min)")
+    if blackout_minute > duration_minutes:
+        raise HTTPException(status_code=400, detail=f"Minuto oscuramento ({blackout_minute}) superiore alla durata ({duration_minutes} min)")
     comp.name = name
     comp.date = date
     comp.initial_value = initial_value
@@ -413,17 +421,26 @@ async def admin_blocca_finale(request: Request, comp_id: int, db: Session = Depe
 
 # --- API: current state for JS polling ---
 @router.get("/api/gara/{comp_id}/stato")
-async def api_stato(comp_id: int, db: Session = Depends(get_db)):
+async def api_stato(request: Request, comp_id: int, db: Session = Depends(get_db)):
+    require_localhost(request)
     from engine import compute_state, rank_teams
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    prob_states, team_scores = compute_state(comp)
+    cached = state_cache.get(comp_id)
+    if cached is None:
+        comp_full = load_comp_full(comp_id, db)
+        prob_states, team_scores = compute_state(comp_full)
+        state_cache.set(comp_id, (prob_states, team_scores))
+    else:
+        prob_states, team_scores = cached
     ranked = rank_teams(team_scores, comp)
     return {
         "status": comp.status,
         "elapsed_seconds": comp.elapsed_seconds(),
         "duration_seconds": comp.duration_minutes * 60,
+        "final_locked": comp.final_locked,
+        "revealed_positions": comp.revealed_positions,
         "teams": [
             {
                 "id": ts.team_id,

@@ -181,5 +181,6 @@ class Display(Base):
     current_view: Mapped[str] = mapped_column(String(50), default="test")
     # test|ranking|team_list|problem_values|competition_status|final_ranking
     last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    text_scale: Mapped[int] = mapped_column(Integer, default=3)  # 1=minimo … 5=massimo
 
     competition: Mapped["Competition"] = relationship("Competition", back_populates="displays")

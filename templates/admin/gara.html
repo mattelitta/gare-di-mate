@@ -20,7 +20,8 @@
 <div class="bg-white rounded-lg shadow p-4 mb-4 flex flex-wrap gap-2 items-center">
   <span class="font-medium text-sm mr-2">Stato gara:</span>
   {% if comp.status == 'created' %}
-    <form method="post" action="/admin/gara/{{ comp.id }}/avvia">
+    <form method="post" action="/admin/gara/{{ comp.id }}/avvia"
+          onsubmit="return confirm('Avviare la gara? Il timer partirà ora.')">
       <button class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm">▶ Avvia</button>
     </form>
   {% elif comp.status == 'running' %}
@@ -135,7 +136,8 @@
           </span>
           {% if pen.note %}<span class="text-gray-500 ml-1 text-xs">– {{ pen.note }}</span>{% endif %}
         </span>
-        <form method="post" action="/admin/gara/{{ comp.id }}/penalizzazioni/{{ pen.id }}/elimina">
+        <form method="post" action="/admin/gara/{{ comp.id }}/penalizzazioni/{{ pen.id }}/elimina"
+              onsubmit="return confirm('Eliminare questa penalizzazione?')">
           <button class="text-red-500 hover:underline text-xs">elim.</button>
         </form>
       </div>
