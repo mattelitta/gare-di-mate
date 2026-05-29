@@ -104,6 +104,24 @@ function renderTest() {
   </div>`;
 }
 
+// --- Helper: riga compatta con barra e testo sovrapposto ---
+function rigaBarra({ label, sublabel, rank, barColor, pct, value, valueColor, separator }) {
+  return `
+    ${separator ? '<div class="border-t-2 border-red-500 my-0.5"></div>' : ''}
+    <div class="flex items-center gap-2">
+      <span class="w-8 text-right font-mono text-sm text-slate-400 shrink-0">${rank}</span>
+      <div class="w-44 shrink-0 leading-tight">
+        <span class="font-semibold text-sm ${label.color}">${label.text}</span>
+        <span class="text-slate-500 text-xs ml-1">${sublabel}</span>
+      </div>
+      <div class="flex-1 relative rounded overflow-hidden bg-slate-700" style="height:1.6rem">
+        <div class="${barColor} h-full rounded bar-fill" style="width:${pct}%"></div>
+        <span class="absolute inset-0 flex items-center justify-end pr-2 font-mono font-bold text-sm ${valueColor}"
+              style="text-shadow:0 1px 4px rgba(0,0,0,0.9)">${value}</span>
+      </div>
+    </div>`;
+}
+
 // --- RANKING ---
 function renderRanking() {
   if (state.blackout_active && state.status !== 'ended') {
@@ -117,31 +135,24 @@ function renderRanking() {
   const teams = state.teams;
   const maxScore = Math.max(...teams.map(t => t.total), 1);
   const nq = state.num_qualified;
-  let html = `<div class="h-full overflow-y-auto px-6 py-4">
-    <h2 class="text-2xl font-bold mb-4 text-slate-200">Classifica</h2>
-    <div class="space-y-2">`;
+  let html = `<div class="h-full overflow-y-auto px-4 py-3">
+    <h2 class="text-xl font-bold mb-2 text-slate-200">Classifica</h2>
+    <div class="space-y-0.5">`;
   teams.forEach((t, i) => {
     const isGuest = t.is_guest;
     const pct = Math.max(2, (t.total / maxScore) * 100);
-    const showLine = !isGuest && nq > 0 && i === nq - 1;
+    const showLine = !isGuest && nq > 0 && i === nq - 1 && i < teams.length - 1;
     const barColor = isGuest ? 'bg-orange-500' : 'bg-blue-500';
-    html += `
-      ${showLine && i < teams.length - 1 ? `<div class="border-t-2 border-red-500 my-1"></div>` : ''}
-      <div class="flex items-center gap-3">
-        <span class="text-slate-400 w-8 text-right font-mono text-lg">${isGuest ? '—' : i+1}</span>
-        <div class="flex-1">
-          <div class="flex justify-between text-sm mb-0.5">
-            <span class="${isGuest ? 'text-orange-300' : 'text-slate-200'} font-semibold">
-              ${t.name} <span class="text-slate-500 font-normal text-xs">${t.city}</span>
-              ${isGuest ? '<span class="text-orange-400 text-xs ml-1">ospite</span>' : ''}
-            </span>
-            <span class="font-mono font-bold text-slate-100">${Math.round(t.total)}</span>
-          </div>
-          <div class="h-6 bg-slate-700 rounded overflow-hidden">
-            <div class="${barColor} h-full rounded bar-fill" style="width:${pct}%"></div>
-          </div>
-        </div>
-      </div>`;
+    const guestTag = isGuest ? ' <span style="font-size:0.65rem;color:#fb923c">ospite</span>' : '';
+    html += rigaBarra({
+      label: { text: t.name + guestTag, color: isGuest ? 'text-orange-300' : 'text-slate-200' },
+      sublabel: t.city,
+      rank: isGuest ? '—' : i + 1,
+      barColor, pct,
+      value: Math.round(t.total),
+      valueColor: 'text-white',
+      separator: showLine,
+    });
   });
   html += `</div></div>`;
   return html;
@@ -149,28 +160,23 @@ function renderRanking() {
 
 // --- TEAM LIST ---
 function renderTeamList() {
-  const teams = [...state.teams].sort((a,b) => a.number - b.number);
+  const teams = [...state.teams].sort((a, b) => a.number - b.number);
   const maxScore = Math.max(...teams.map(t => t.total), 1);
-  let html = `<div class="h-full overflow-y-auto px-6 py-4">
-    <h2 class="text-2xl font-bold mb-4 text-slate-200">Elenco squadre</h2>
-    <div class="space-y-2">`;
+  let html = `<div class="h-full overflow-y-auto px-4 py-3">
+    <h2 class="text-xl font-bold mb-2 text-slate-200">Elenco squadre</h2>
+    <div class="space-y-0.5">`;
   teams.forEach(t => {
     const pct = Math.max(2, (t.total / maxScore) * 100);
     const barColor = t.is_guest ? 'bg-orange-500' : 'bg-blue-500';
-    html += `<div class="flex items-center gap-3">
-      <span class="text-slate-400 w-8 text-right font-mono">${String(t.number).padStart(2,'0')}</span>
-      <div class="flex-1">
-        <div class="flex justify-between text-sm mb-0.5">
-          <span class="${t.is_guest ? 'text-orange-300':'text-slate-200'} font-semibold">
-            ${t.name} <span class="text-slate-500 font-normal text-xs">${t.city}</span>
-          </span>
-          <span class="font-mono font-bold">${Math.round(t.total)}</span>
-        </div>
-        <div class="h-5 bg-slate-700 rounded overflow-hidden">
-          <div class="${barColor} h-full rounded bar-fill" style="width:${pct}%"></div>
-        </div>
-      </div>
-    </div>`;
+    html += rigaBarra({
+      label: { text: t.name, color: t.is_guest ? 'text-orange-300' : 'text-slate-200' },
+      sublabel: t.city,
+      rank: String(t.number).padStart(2, '0'),
+      barColor, pct,
+      value: Math.round(t.total),
+      valueColor: 'text-white',
+      separator: false,
+    });
   });
   html += `</div></div>`;
   return html;
@@ -180,23 +186,21 @@ function renderTeamList() {
 function renderProblemValues() {
   const probs = state.problems;
   const maxVal = Math.max(...probs.map(p => p.value), 1);
-  let html = `<div class="h-full overflow-y-auto px-6 py-4">
-    <h2 class="text-2xl font-bold mb-4 text-slate-200">Valori dei problemi</h2>
-    <div class="space-y-3">`;
+  let html = `<div class="h-full overflow-y-auto px-4 py-3">
+    <h2 class="text-xl font-bold mb-2 text-slate-200">Valori dei problemi</h2>
+    <div class="space-y-0.5">`;
   probs.forEach(p => {
     const pct = Math.max(2, (p.value / maxVal) * 100);
-    html += `<div class="flex items-center gap-3">
-      <span class="text-slate-400 w-8 text-right font-mono text-sm">${String(p.number).padStart(2,'0')}</span>
-      <div class="flex-1">
-        <div class="flex justify-between text-sm mb-0.5">
-          <span class="text-slate-200 font-semibold">${p.name}</span>
-          <span class="font-mono font-bold text-yellow-300">${Math.round(p.value)}</span>
-        </div>
-        <div class="h-6 bg-slate-700 rounded overflow-hidden">
-          <div class="bg-yellow-500 h-full rounded bar-fill" style="width:${pct}%"></div>
-        </div>
-      </div>
-    </div>`;
+    html += rigaBarra({
+      label: { text: p.name, color: 'text-slate-200' },
+      sublabel: '',
+      rank: String(p.number).padStart(2, '0'),
+      barColor: 'bg-yellow-500',
+      pct,
+      value: Math.round(p.value),
+      valueColor: 'text-white',
+      separator: false,
+    });
   });
   html += `</div></div>`;
   return html;
