@@ -8,16 +8,21 @@ Key rules:
 - After threshold_minute: value frozen
 - Correct answer: +current_value (dynamic — grows with problem)
 - Wrong answer: -10 always (even after solving, even after threshold)
-- First delivery bonus: fixed at time of correct submission
+- First delivery bonus: fixed at time of correct submission order
 - Full bonus: fixed when team completes all problems
-- Jolly: ×2 on all contributions for chosen problem
+- Jolly: x2 on all contributions for chosen problem
 - Penalties: arbitrary additions
-- Starting score: 10 × num_problems
+- Starting score: 10 x num_problems
 - Post-game submissions: treated as game_seconds = duration_minutes * 60
+
+Performance notes:
+- Chiamata tipicamente da cache (cache.py), non ad ogni request
+- Tutti i dati devono essere già caricati in memoria (eager loading via load_comp_full)
+- Complessità O(S) dove S = numero consegne, grazie alla precomputazione
 """
 
 from dataclasses import dataclass, field
-from models import Competition, Submission, JollyChoice, Penalty, Team, Problem
+from models import Competition
 
 
 @dataclass
@@ -25,9 +30,9 @@ class ProblemState:
     problem_id: int
     number: int
     name: str
-    value: float          # current dynamic value
-    solvers: list[int]    # team_ids in order of correct submission
-    error_counts: dict[int, int] = field(default_factory=dict)  # team_id -> total errors
+    value: float
+    solvers: list[int]          # team_ids in ordine di soluzione corretta
+    error_counts: dict[int, int] = field(default_factory=dict)  # team_id -> totale errori
 
 
 @dataclass
@@ -38,155 +43,137 @@ class TeamScore:
     city: str
     is_guest: bool
     total: float
-    problem_contributions: dict[int, float]   # problem_id -> net contribution
-    problem_errors: dict[int, int]            # problem_id -> num errors
-    problem_solved: dict[int, bool]           # problem_id -> solved?
+    problem_contributions: dict[int, float]  # problem_id -> contributo netto
+    problem_errors: dict[int, int]           # problem_id -> num errori
+    problem_solved: dict[int, bool]          # problem_id -> risolto?
     jolly_problem_id: int | None
-    first_delivery_bonuses_earned: dict[int, int]   # problem_id -> bonus value
-    full_bonus_earned: int                          # 0 if not earned
+    first_delivery_bonuses_earned: dict[int, dict[int, int]]  # problem_id -> {team_id -> bonus}
+    full_bonus_earned: int
     penalty_total: int
 
 
-def compute_state(comp: Competition, at_seconds: float | None = None) -> tuple[dict[int, ProblemState], dict[int, TeamScore]]:
+def compute_state(
+    comp: Competition,
+    at_seconds: float | None = None,
+) -> tuple[dict[int, ProblemState], dict[int, TeamScore]]:
     """
-    Compute the full game state at a given game-time (seconds).
-    If at_seconds is None, uses current elapsed time.
-    Returns (problem_states, team_scores).
+    Calcola lo stato completo della gara all'istante at_seconds.
+    Se at_seconds è None, usa il tempo elapsed corrente.
+    Richiede che comp abbia già tutte le relazioni caricate (eager loading).
     """
     if at_seconds is None:
         at_seconds = comp.elapsed_seconds()
 
     threshold_seconds = comp.threshold_minute * 60
-    duration_seconds = comp.duration_minutes * 60
 
     teams = {t.id: t for t in comp.teams}
     problems = {p.id: p for p in comp.problems}
     num_problems = len(problems)
 
-    # Build jolly map: team_id -> problem_id (last choice wins if multiple)
+    # Jolly: ultimo inserimento per squadra vince
     jolly_map: dict[int, int] = {}
     for jc in sorted(comp.jolly_choices, key=lambda x: x.submitted_at):
         jolly_map[jc.team_id] = jc.problem_id
 
-    # Sort submissions by game_seconds, then submitted_at (for post-game ordering)
-    submissions = sorted(comp.submissions, key=lambda s: (s.game_seconds, s.submitted_at))
+    # Consegne ordinate per (game_seconds, submitted_at) — garantisce ordine corretto
+    # anche per le consegne post-gara che hanno tutte lo stesso game_seconds
+    submissions = sorted(
+        (s for s in comp.submissions if s.game_seconds <= at_seconds),
+        key=lambda s: (s.game_seconds, s.submitted_at),
+    )
 
-    # Filter to submissions that occurred at or before at_seconds
-    submissions = [s for s in submissions if s.game_seconds <= at_seconds]
+    # --- Passaggio unico O(S): costruisce tutte le strutture dati necessarie ---
 
-    # --- Build problem states ---
-    # Track: for each problem, errors per team (for value calc), and correct submissions in order
+    # Per ogni problema: errori per squadra (tutti), solutori ordinati
     prob_errors: dict[int, dict[int, int]] = {pid: {} for pid in problems}
-    prob_solvers: dict[int, list[int]] = {pid: [] for pid in problems}  # ordered team_ids
-    # Track which teams have solved each problem (for value calc)
+    prob_solvers: dict[int, list[int]] = {pid: [] for pid in problems}
     prob_solver_set: dict[int, set[int]] = {pid: set() for pid in problems}
 
-    # We need to replay submissions to compute problem values at each moment
-    # because value at time of correct answer depends on errors/solvers up to that point.
-    # We also need the value to grow for teams that solved before n solvers.
+    # Errori PRIMA del minuto soglia, per squadra e problema — usati per il valore
+    # Precomputati qui in O(S) per evitare loop annidati in problem_value
+    errors_pre_threshold: dict[int, dict[int, int]] = {pid: {} for pid in problems}
 
-    # Strategy:
-    # 1. Replay all submissions in order, tracking error counts and solver order.
-    # 2. For each problem, compute its value at any given game_second:
-    #    value(t) = initial + time_contribution(t) + error_contribution(t)
-    # 3. Team's score from a problem = value(current_t) if solved (dynamic),
-    #    so we don't fix it at submission time.
+    # Tempo (game_seconds) della n-esima soluzione corretta per ogni problema
+    nth_solver_time: dict[int, float | None] = {pid: None for pid in problems}
+    correct_count: dict[int, int] = {pid: 0 for pid in problems}
 
-    # First pass: collect all events per problem
     for sub in submissions:
         pid = sub.problem_id
         tid = sub.team_id
-        if pid not in prob_errors:
+        if pid not in problems:
             continue
-        if not sub.is_correct:
-            prob_errors[pid][tid] = prob_errors[pid].get(tid, 0) + 1
-            if tid not in prob_solver_set[pid]:
-                pass  # errors after solve still count toward k (per spec)
-        else:
+
+        if sub.is_correct:
             if tid not in prob_solver_set[pid]:
                 prob_solver_set[pid].add(tid)
                 prob_solvers[pid].append(tid)
-
-    # Compute current problem value at at_seconds
-    def problem_value(pid: int) -> float:
-        p_errors = prob_errors[pid]
-        n_solvers = len(prob_solvers[pid])
-
-        # Time bonus: +1/min while fewer than n teams solved it, up to threshold
-        effective_t = min(at_seconds, threshold_seconds)
-        # We need to find when the nth solver submitted to stop time bonus
-        nth_solver_t = None
-        if n_solvers >= comp.n:
-            # find game_seconds of the nth correct submission for this problem
-            correct_subs = [s for s in submissions if s.problem_id == pid and s.is_correct]
-            correct_subs_ordered = sorted(correct_subs, key=lambda s: (s.game_seconds, s.submitted_at))
-            if len(correct_subs_ordered) >= comp.n:
-                nth_solver_t = correct_subs_ordered[comp.n - 1].game_seconds
-
-        if nth_solver_t is not None:
-            time_t = min(effective_t, nth_solver_t)
+                correct_count[pid] += 1
+                if correct_count[pid] == comp.n and nth_solver_time[pid] is None:
+                    nth_solver_time[pid] = sub.game_seconds
         else:
-            time_t = effective_t
+            # Errori contano sempre (anche dopo aver risolto)
+            prob_errors[pid][tid] = prob_errors[pid].get(tid, 0) + 1
+            # Errori pre-soglia: per il calcolo del valore del problema
+            if sub.game_seconds <= threshold_seconds:
+                errors_pre_threshold[pid][tid] = errors_pre_threshold[pid].get(tid, 0) + 1
 
-        time_bonus = time_t / 60.0  # +1 per minute
+    # --- Calcolo valore problema (O(1) per problema grazie alla precomputazione) ---
 
-        # Error bonus: first k errors per team, up to threshold
-        error_bonus = 0
-        for tid, err_count in p_errors.items():
-            # count errors that happened before threshold
-            team_errors_before_threshold = _count_errors_before(submissions, pid, tid, threshold_seconds)
-            contributing = min(team_errors_before_threshold, comp.k)
-            error_bonus += contributing * 2
+    def problem_value(pid: int) -> float:
+        effective_t = min(at_seconds, threshold_seconds)
+
+        # Il bonus al minuto si blocca al minuto soglia O quando l'n-esima squadra risolve
+        nth_t = nth_solver_time[pid]
+        time_t = min(effective_t, nth_t) if nth_t is not None else effective_t
+        time_bonus = time_t / 60.0
+
+        # Bonus errori: primi k errori pre-soglia per squadra, ognuno vale +2
+        error_bonus = sum(
+            min(err_count, comp.k) * 2
+            for err_count in errors_pre_threshold[pid].values()
+        )
 
         return comp.initial_value + time_bonus + error_bonus
 
-    def _count_errors_before(subs, pid, tid, t_limit):
-        count = 0
-        for s in subs:
-            if s.problem_id == pid and s.team_id == tid and not s.is_correct:
-                if s.game_seconds <= t_limit:
-                    count += 1
-        return count
+    # Precalcola tutti i valori una volta sola
+    prob_values = {pid: problem_value(pid) for pid in problems}
 
-    # --- First delivery bonuses ---
-    # For each problem, assign bonus to solvers in order
-    first_delivery_bonus_map: dict[int, dict[int, int]] = {pid: {} for pid in problems}
+    # --- Bonus prima consegna ---
     fd_bonuses = comp.first_delivery_bonuses
+    first_delivery_bonus_map: dict[int, dict[int, int]] = {pid: {} for pid in problems}
     for pid, solvers in prob_solvers.items():
         for i, tid in enumerate(solvers):
             if i < len(fd_bonuses):
                 first_delivery_bonus_map[pid][tid] = fd_bonuses[i]
 
-    # --- Full bonus ---
-    # Teams that solved all problems, in order of completing the last problem
+    # --- Bonus full ---
     full_bonus_map: dict[int, int] = {}
     if num_problems > 0:
-        # For each team, find when they solved their last problem
-        team_completion_times: list[tuple[float, int, int]] = []  # (game_sec, submitted_at_ts, team_id)
+        # Per ogni squadra che ha risolto tutto, trova il momento dell'ultima soluzione
+        completions: list[tuple[float, float, int]] = []  # (game_sec, wall_ts, team_id)
         for tid in teams:
-            solved_problems = {pid for pid in problems if tid in prob_solver_set[pid]}
-            if len(solved_problems) == num_problems:
-                # Find game_seconds of last solve
+            if all(tid in prob_solver_set[pid] for pid in problems):
                 last_t = 0.0
-                last_wall = 0
+                last_wall = 0.0
                 for sub in submissions:
                     if sub.team_id == tid and sub.is_correct and sub.problem_id in problems:
-                        if (sub.game_seconds, sub.submitted_at.timestamp()) > (last_t, last_wall):
+                        wall = sub.submitted_at.timestamp()
+                        if (sub.game_seconds, wall) > (last_t, last_wall):
                             last_t = sub.game_seconds
-                            last_wall = sub.submitted_at.timestamp()
-                team_completion_times.append((last_t, last_wall, tid))
-        team_completion_times.sort()
+                            last_wall = wall
+                completions.append((last_t, last_wall, tid))
+        completions.sort()
         full_bonuses = comp.full_bonuses
-        for i, (_, _, tid) in enumerate(team_completion_times):
+        for i, (_, _, tid) in enumerate(completions):
             if i < len(full_bonuses):
                 full_bonus_map[tid] = full_bonuses[i]
 
-    # --- Penalties ---
+    # --- Penalizzazioni ---
     penalty_map: dict[int, int] = {}
-    for p in comp.penalties:
-        penalty_map[p.team_id] = penalty_map.get(p.team_id, 0) + p.value
+    for pen in comp.penalties:
+        penalty_map[pen.team_id] = penalty_map.get(pen.team_id, 0) + pen.value
 
-    # --- Assemble team scores ---
+    # --- Assemblaggio punteggi squadre ---
     starting = 10 * num_problems
     team_scores: dict[int, TeamScore] = {}
 
@@ -199,11 +186,10 @@ def compute_state(comp: Competition, at_seconds: float | None = None) -> tuple[d
         for pid in problems:
             errors = prob_errors[pid].get(tid, 0)
             solved = tid in prob_solver_set[pid]
-            is_jolly = jolly_pid == pid
-            multiplier = 2 if is_jolly else 1
+            multiplier = 2 if jolly_pid == pid else 1
 
             if solved:
-                val = problem_value(pid)
+                val = prob_values[pid]
                 fd_bonus = first_delivery_bonus_map[pid].get(tid, 0)
                 contribution = (val + fd_bonus - 10 * errors) * multiplier
             else:
@@ -233,49 +219,43 @@ def compute_state(comp: Competition, at_seconds: float | None = None) -> tuple[d
             penalty_total=penalty,
         )
 
-    problem_states: dict[int, ProblemState] = {}
-    for pid, prob in problems.items():
-        problem_states[pid] = ProblemState(
+    # --- Stato problemi ---
+    problem_states: dict[int, ProblemState] = {
+        pid: ProblemState(
             problem_id=pid,
             number=prob.number,
             name=prob.name,
-            value=problem_value(pid),
+            value=prob_values[pid],
             solvers=prob_solvers[pid],
             error_counts=prob_errors[pid],
         )
+        for pid, prob in problems.items()
+    }
 
     return problem_states, team_scores
 
 
 def rank_teams(team_scores: dict[int, TeamScore], comp: Competition) -> list[TeamScore]:
     """
-    Sort teams by ranking rules:
-    1. Guests always last (among themselves sorted by total desc)
-    2. Non-guests sorted by total desc
-    3. Tiebreak: jolly problem contribution desc, then highest single correct answer value desc
+    Ordina le squadre per classifica:
+    1. Ospiti sempre in fondo (ordinati tra loro per punteggio decrescente)
+    2. Non-ospiti per punteggio decrescente
+    3. Spareggi: contributo jolly, poi valore singole risposte corrette (decrescente)
     """
     non_guests = [ts for ts in team_scores.values() if not ts.is_guest]
     guests = [ts for ts in team_scores.values() if ts.is_guest]
 
     def sort_key(ts: TeamScore):
-        jolly_contrib = 0.0
-        if ts.jolly_problem_id and ts.jolly_problem_id in ts.problem_contributions:
-            jolly_contrib = ts.problem_contributions[ts.jolly_problem_id]
-        # For tiebreak 2+: sorted contributions of solved problems desc
+        jolly_contrib = (
+            ts.problem_contributions.get(ts.jolly_problem_id, 0.0)
+            if ts.jolly_problem_id else 0.0
+        )
         solved_vals = sorted(
-            [v for pid, v in ts.problem_contributions.items() if ts.problem_solved.get(pid, False)],
-            reverse=True
+            [v for pid, v in ts.problem_contributions.items() if ts.problem_solved.get(pid)],
+            reverse=True,
         )
         return (ts.total, jolly_contrib, solved_vals)
 
     non_guests.sort(key=sort_key, reverse=True)
     guests.sort(key=sort_key, reverse=True)
     return non_guests + guests
-
-
-def problem_value_at(comp: Competition, problem_id: int, at_seconds: float) -> float:
-    """Compute value of a single problem at a given game time."""
-    prob_states, _ = compute_state(comp, at_seconds)
-    if problem_id in prob_states:
-        return prob_states[problem_id].value
-    return float(comp.initial_value)

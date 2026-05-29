@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from cache import state_cache
 from database import get_db
 from models import Competition, JollyChoice, Problem, Submission, Team
 
@@ -113,6 +114,7 @@ async def inserimento_jolly(
         game_seconds=game_sec,
     ))
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/inserimento/{comp_id}", status_code=303)
 
 
@@ -155,6 +157,7 @@ async def inserimento_soluzione(
         game_seconds=game_sec,
     ))
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/inserimento/{comp_id}", status_code=303)
 
 
@@ -192,6 +195,7 @@ async def inserimento_elimina_consegna(
         raise HTTPException(status_code=404)
     db.delete(sub)
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/inserimento/{comp_id}/consegne", status_code=303)
 
 
@@ -245,4 +249,5 @@ async def inserimento_modifica_consegna(
     sub.answer = answer
     sub.is_correct = answer == problem.answer
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/inserimento/{comp_id}/consegne", status_code=303)

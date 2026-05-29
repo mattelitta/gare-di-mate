@@ -5,7 +5,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from database import get_db
+from cache import state_cache
+from database import get_db, load_comp_full
+from engine import compute_state, rank_teams
 from models import Competition, Display
 
 router = APIRouter()
@@ -103,8 +105,8 @@ async def display_view(
 @router.get("/api/{comp_id}/schermo/{display_id}/stato")
 async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends(get_db)):
     """JSON endpoint polled by display viewer to get current view and data."""
-    from engine import compute_state, rank_teams
 
+    # Carica display e metadati gara (query leggera, senza relazioni pesanti)
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
@@ -123,7 +125,15 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
         and elapsed >= comp.blackout_minute * 60
     )
 
-    prob_states, team_scores = compute_state(comp)
+    # Controlla cache — se presente evita di ricaricare tutto dal DB
+    cached = state_cache.get(comp_id)
+    if cached is None:
+        comp_full = load_comp_full(comp_id, db)
+        prob_states, team_scores = compute_state(comp_full)
+        state_cache.set(comp_id, (prob_states, team_scores))
+    else:
+        prob_states, team_scores = cached
+
     ranked = rank_teams(team_scores, comp)
 
     # Serialize team scores

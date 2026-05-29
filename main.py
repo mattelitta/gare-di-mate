@@ -74,15 +74,26 @@ async def websocket_endpoint(ws: WebSocket, competition_id: int, channel: str):
 
 
 async def broadcast_loop():
-    """Push state updates to all connected clients every second."""
+    """Aggiorna la cache ogni secondo per le gare in corso e notifica i client."""
     while True:
         await asyncio.sleep(1)
         db = SessionLocal()
         try:
             from models import Competition
-            comps = db.query(Competition).filter(Competition.status == "running").all()
-            for comp in comps:
-                await manager.broadcast(f"{comp.id}:state", {"type": "tick", "comp_id": comp.id})
+            from database import load_comp_full
+            from engine import compute_state
+            from cache import state_cache
+            # Solo gare attive: il valore dei problemi cresce al minuto
+            comp_ids = [
+                c.id for c in db.query(Competition.id)
+                .filter(Competition.status == "running").all()
+            ]
+            for comp_id in comp_ids:
+                comp = load_comp_full(comp_id, db)
+                if comp:
+                    prob_states, team_scores = compute_state(comp)
+                    state_cache.set(comp_id, (prob_states, team_scores))
+                    await manager.broadcast(f"{comp_id}:state", {"type": "tick"})
         finally:
             db.close()
 

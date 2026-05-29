@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from cache import state_cache
 from database import get_db
 from models import Competition, Display, JollyChoice, Penalty, Problem, Submission, Team
 
@@ -214,6 +215,7 @@ async def admin_avvia(request: Request, comp_id: int, db: Session = Depends(get_
         comp.paused_at = None
     comp.status = "running"
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -226,6 +228,7 @@ async def admin_pausa(request: Request, comp_id: int, db: Session = Depends(get_
     comp.status = "paused"
     comp.paused_at = datetime.utcnow()
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -241,6 +244,7 @@ async def admin_termina(request: Request, comp_id: int, db: Session = Depends(ge
     comp.status = "ended"
     comp.ended_at = now
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -261,6 +265,7 @@ async def admin_aggiungi_squadra(
         raise HTTPException(status_code=404)
     db.add(Team(competition_id=comp_id, number=number, name=name, city=city, is_guest=is_guest))
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -284,6 +289,7 @@ async def admin_modifica_squadra(
     team.city = city
     team.is_guest = is_guest
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -297,6 +303,7 @@ async def admin_elimina_squadra(
         raise HTTPException(status_code=404)
     db.delete(team)
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -317,6 +324,7 @@ async def admin_aggiungi_problema(
     answer = answer.strip().zfill(4)[:4]
     db.add(Problem(competition_id=comp_id, number=number, name=name, answer=answer))
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -338,6 +346,7 @@ async def admin_modifica_problema(
     prob.name = name
     prob.answer = answer.strip().zfill(4)[:4]
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -351,6 +360,7 @@ async def admin_elimina_problema(
         raise HTTPException(status_code=404)
     db.delete(prob)
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -370,6 +380,7 @@ async def admin_aggiungi_penalizzazione(
         raise HTTPException(status_code=404)
     db.add(Penalty(competition_id=comp_id, team_id=team_id, value=value, note=note))
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -383,6 +394,7 @@ async def admin_elimina_penalizzazione(
         raise HTTPException(status_code=404)
     db.delete(pen)
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -395,6 +407,7 @@ async def admin_blocca_finale(request: Request, comp_id: int, db: Session = Depe
         raise HTTPException(status_code=404)
     comp.final_locked = True
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
