@@ -220,10 +220,7 @@ function renderCompStatus() {
   };
 
   let html = `<div class="h-full overflow-auto p-4">
-    <div class="flex justify-between items-start mb-2">
-      <h2 class="text-xl font-bold text-slate-200">Stato gara</h2>
-      <span class="text-slate-400 font-mono">n = ${n}</span>
-    </div>
+    <h2 class="text-xl font-bold text-slate-200 mb-2">Stato gara</h2>
     <table class="w-full border-collapse">
       <thead>
         <tr class="text-slate-400">
@@ -241,7 +238,7 @@ function renderCompStatus() {
     const rowBg = tone === 0 ? 'bg-slate-800' : 'bg-slate-700';
     const teamColor = t.is_guest ? 'text-orange-300' : 'text-slate-200';
     html += `<tr class="${rowBg}">
-      <td class="py-2 pr-3 font-semibold ${teamColor} whitespace-nowrap sticky left-0 ${rowBg}">
+      <td class="py-1 pr-3 font-semibold ${teamColor} whitespace-nowrap sticky left-0 ${rowBg}">
         <span class="font-mono text-slate-400 text-sm mr-1">${String(t.number).padStart(2,'0')}</span>
         <span class="text-base">${t.name}</span>
         <span class="text-slate-500 text-sm font-normal ml-1">${t.city}</span>
@@ -256,8 +253,8 @@ function renderCompStatus() {
       else if (errors>0) { bg = cellBg.error[tone];   textColor = 'text-red-300'; }
       else               { bg = cellBg.empty[tone];   textColor = ''; }
       const text = (errors > 0 || solved) ? (contrib > 0 ? '+'+Math.round(contrib) : Math.round(contrib)) : '';
-      html += `<td class="px-1 py-1 text-center">
-        <div class="${bg} rounded px-1 py-1.5 ${isJolly ? 'ring-2 ring-yellow-400' : ''} min-h-[36px] flex items-center justify-center">
+      html += `<td class="px-1 py-0.5 text-center">
+        <div class="${bg} rounded px-1 py-1 ${isJolly ? 'ring-2 ring-yellow-400' : ''} min-h-[30px] flex items-center justify-center">
           <span class="font-mono text-sm font-bold ${textColor}">${text}</span>
         </div>
       </td>`;
@@ -267,7 +264,9 @@ function renderCompStatus() {
 
   // Riga risolutori in tfoot — allineata automaticamente alle colonne della tabella
   html += `</tbody><tfoot><tr>
-    <td class="py-1.5 pr-3 text-slate-400 text-sm font-medium sticky left-0 bg-slate-900">Risolutori</td>`;
+    <td class="py-1 pr-3 text-slate-400 text-sm font-medium sticky left-0 bg-slate-900">
+      Risolutori <span class="font-mono text-slate-500 ml-1">(n=${n})</span>
+    </td>`;
   probs.forEach(p => {
     const count = Math.min(p.num_solvers, n);
     let bg = 'bg-slate-700 text-slate-400';
