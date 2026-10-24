@@ -250,11 +250,11 @@ function renderCompStatus() {
       <thead>
         <tr class="text-slate-400">
           <th class="text-left pr-3 font-medium sticky left-0 bg-slate-900"
-              style="font-size:${s.subFs};padding-top:${s.cellPy};padding-bottom:${s.cellPy}">Squadra</th>`;
+              style="font-size:${s.nameFs};padding-top:${s.cellPy};padding-bottom:${s.cellPy}">Squadra</th>`;
   probs.forEach(p => {
     html += `<th class="text-center font-medium" style="min-width:${s.cellMinW};padding:${s.cellPy} 2px">
-      <div style="font-size:${s.subFs}" class="font-bold text-slate-300">${String(p.number).padStart(2,'0')}</div>
-      <div style="font-size:${s.nameFs}" class="text-yellow-400 font-mono font-bold">${Math.round(p.value)}</div>
+      <div style="font-size:${s.nameFs}" class="font-bold text-slate-300">${String(p.number).padStart(2,'0')}</div>
+      <div style="font-size:${s.rankFs}" class="text-yellow-400 font-mono font-bold">${Math.round(p.value)}</div>
     </th>`;
   });
   html += `</tr></thead><tbody>`;
@@ -266,9 +266,9 @@ function renderCompStatus() {
     html += `<tr class="${rowBg}">
       <td class="pr-3 font-semibold ${teamColor} whitespace-nowrap sticky left-0 ${rowBg}"
           style="padding-top:${s.cellPy};padding-bottom:${s.cellPy}">
-        <span class="font-mono text-slate-400 mr-1" style="font-size:${s.subFs}">${String(t.number).padStart(2,'0')}</span>
+        <span class="font-mono text-slate-400 mr-1" style="font-size:${s.nameFs}">${String(t.number).padStart(2,'0')}</span>
         <span style="font-size:${s.nameFs}">${t.name}</span>
-        <span class="text-slate-500 font-normal ml-1" style="font-size:${s.subFs}">${t.city}</span>
+        <span class="text-slate-400 font-normal ml-1" style="font-size:${s.nameFs}">${t.city}</span>
       </td>`;
     probs.forEach(p => {
       const solved = t.problem_solved[p.id];
@@ -292,7 +292,7 @@ function renderCompStatus() {
 
   html += `</tbody><tfoot><tr>
     <td class="pr-3 text-slate-400 font-medium sticky left-0 bg-slate-900"
-        style="font-size:${s.subFs};padding-top:${s.cellPy};padding-bottom:${s.cellPy}">
+        style="font-size:${s.nameFs};padding-top:${s.cellPy};padding-bottom:${s.cellPy}">
       Risolutori <span class="font-mono text-slate-500 ml-1">(n=${n})</span>
     </td>`;
   probs.forEach(p => {
@@ -301,7 +301,7 @@ function renderCompStatus() {
     if (count >= n) bg = 'bg-red-800 text-red-200';
     else if (count >= 1) bg = 'bg-yellow-800 text-yellow-200';
     html += `<td class="text-center" style="padding:${s.cellPy} 2px">
-      <span class="font-mono font-bold px-1 rounded ${bg}" style="font-size:${s.cellFs}">${count}</span>
+      <span class="font-mono font-bold px-1 rounded ${bg}" style="font-size:${s.rankFs}">${count}</span>
     </td>`;
   });
   html += `</tr></tfoot></table></div>`;
