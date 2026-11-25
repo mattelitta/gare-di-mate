@@ -21,26 +21,12 @@ def get_db():
         db.close()
 
 
-def init_db():
+def init_db() -> str:
+    """Crea o aggiorna il database (vedi migrations.py). Può sollevare MigrationError
+    o SchemaTooNewError, con un messaggio già adatto all'utente."""
     from models import Competition, Team, Problem, Submission, JollyChoice, Penalty, Display, Setting  # noqa
-    Base.metadata.create_all(bind=engine)
-    _migrate_db()
-
-
-def _migrate_db():
-    """Aggiunge colonne mancanti per migrazioni incrementali (idempotente)."""
-    from sqlalchemy import text
-    migrations = [
-        "ALTER TABLE displays ADD COLUMN text_scale INTEGER DEFAULT 3",
-        "ALTER TABLE competitions ADD COLUMN display_theme VARCHAR DEFAULT 'light'",
-    ]
-    with engine.connect() as conn:
-        for stmt in migrations:
-            try:
-                conn.execute(text(stmt))
-                conn.commit()
-            except Exception:
-                pass  # colonna già presente
+    import migrations
+    return migrations.run(engine, DB_PATH, lambda: Base.metadata.create_all(bind=engine))
 
 
 def load_comp_full(comp_id: int, db):

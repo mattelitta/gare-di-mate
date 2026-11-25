@@ -4,15 +4,17 @@ Software di gestione per gare a squadre di matematica. Permette di amministrare 
 
 ## Funzionalità
 
-- **Admin** — creazione e gestione gare, squadre, problemi, penalizzazioni; controllo stato (avvia / pausa / riprendi / termina); accessibile solo dal dispositivo host
-- **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara, storico consegne modificabile; ottimizzato per uso rapido da tablet
+- **Admin** — creazione e gestione gare; squadre e problemi (nella pagina "Modifica parametri", per non toccarli per sbaglio durante la gara); bonus o penalizzazioni in punti; controllo stato (avvia / pausa / riprendi / termina); accessibile solo dal dispositivo host
+- **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara (la pagina si può aprire già prima della partenza: l'invio si attiva da solo quando la gara inizia); storico consegne modificabile e filtrabile per squadra, problema e dispositivo che le ha inserite; ottimizzato per uso rapido da tablet (il cursore passa da solo al campo successivo: es. `04` `03` Invio)
 - **Regia** — controllo dei display in sala (scelta della vista, scala del testo), rivelazione progressiva della classifica finale
 - **Display** — viste in tempo reale aggiornate via polling: classifica, elenco squadre, valori problemi, stato gara, classifica finale
 
 ## Requisiti
 
-- Python 3.11+
-- Dipendenze: `fastapi`, `uvicorn[standard]`, `sqlalchemy`, `jinja2`, `python-multipart`
+Solo per l'installazione da sorgente (l'installer Windows include già tutto):
+
+- Python 3.11+ (con Python 3.14 serve SQLAlchemy 2.1, già indicato in `requirements.txt`)
+- Dipendenze in `requirements.txt`: `fastapi`, `uvicorn[standard]`, `sqlalchemy`, `jinja2`, `python-multipart`, `itsdangerous`
 
 ## Installazione su Windows (consigliata)
 
@@ -31,16 +33,25 @@ digitalmente): cliccare **Ulteriori informazioni** → **Esegui comunque**.
 
 L'app funziona completamente offline: non serve una connessione a internet.
 
+**Aggiornare**: scaricare il nuovo installer dalla pagina
+[Releases](https://github.com/mattelitta/gare-di-mate/releases) ed eseguirlo. Riconosce la versione
+già installata e la aggiorna; se Gare di Mate è aperto propone di chiuderlo. Le gare salvate restano.
+La versione installata è scritta in basso nella finestra di Gare di Mate.
+Se la nuova versione cambia la struttura del database, le gare salvate vengono adattate in automatico
+già durante l'installazione; prima viene salvata una copia di sicurezza (`gare-backup-….db`) nella
+stessa cartella `Documenti\Gare di Mate`.
+
+**Disinstallare**: menu Start → cartella *Gare di Mate* → *Disinstalla Gare di Mate*
+(oppure Impostazioni → App). Le gare salvate in `Documenti\Gare di Mate` non vengono eliminate.
+
 ### Creare l'installer
 
 Serve un PC Windows con Python, PyInstaller (`py -m pip install pyinstaller`)
 e Inno Setup 6 (`winget install JRSoftware.InnoSetup`). Poi:
 
-```bat
-build_installer.bat 1.0.0
-```
-
-Il risultato è `dist\GareDiMate-Setup-1.0.0.exe`.
+1. aggiornare il numero di versione nel file `VERSION` (es. `1.1.0`);
+2. eseguire `build_installer.bat`;
+3. pubblicare `dist\GareDiMate-Setup-<versione>.exe` come nuova release su GitHub.
 
 ## Installazione da sorgente (sviluppo, Linux, macOS)
 
@@ -88,9 +99,10 @@ Cambiandola, tutti i dispositivi collegati dovranno rifare l'accesso.
 
 ## Flusso di una gara
 
-1. L'**Admin** crea la gara con parametri, squadre e problemi
+1. L'**Admin** crea la gara con i parametri, poi aggiunge squadre e problemi in "Modifica parametri"
 2. L'**Admin** avvia la gara — il timer parte
-3. La **Regia** assegna le viste ai display e regola la scala del testo
+3. La **Regia** assegna le viste ai display e regola la scala del testo; gli **inseritori** possono
+   già aprire la pagina di inserimento (anche prima della partenza)
 4. L'**Inserimento** registra jolly (entro il tempo jolly) e soluzioni
 5. I **Display** mostrano classifica, valori e stato in tempo reale
 6. Al minuto di oscuramento la classifica viene nascosta al pubblico
@@ -128,6 +140,7 @@ Cambiandola, tutti i dispositivi collegati dovranno rifare l'accesso.
 | `final_ranking` | Rivelazione progressiva gestita dalla Regia |
 
 La **scala del testo** di ogni display (1–5) è regolabile dalla Regia in tempo reale: scala 1 per 30+ squadre, scala 5 per 5–10 squadre.
+Il **tema** (chiaro, predefinito e adatto alla proiezione, oppure scuro) si sceglie nei parametri della gara.
 
 ## Struttura del progetto
 
@@ -137,12 +150,13 @@ gare-di-mate/
 ├── launcher.py          # Finestra di avvio (eseguibile Windows)
 ├── paths.py             # Percorsi di template, file statici e database
 ├── auth.py              # Password di accesso per i dispositivi in rete
-├── database.py          # Setup SQLite / SQLAlchemy, eager loading, migrazioni
+├── database.py          # Setup SQLite / SQLAlchemy, eager loading
+├── migrations.py        # Aggiornamento automatico della struttura del database (con backup)
 ├── models.py            # Modelli dati (Competition, Team, Problem, ...)
 ├── engine.py            # Motore di calcolo punteggi (O(S), nessun punteggio salvato)
 ├── cache.py             # Cache in memoria con TTL e invalidazione esplicita
 ├── routers/
-│   ├── admin.py         # CRUD gare/squadre/problemi/penalizzazioni, controllo stato
+│   ├── admin.py         # Gare, squadre, problemi, bonus/penalizzazioni, controllo stato
 │   ├── inserimento.py   # Jolly e soluzioni, storico consegne
 │   ├── regia.py         # Gestione display, scala testo, rivelazione finale
 │   └── display.py       # Viewer display, API JSON polling
@@ -152,9 +166,9 @@ gare-di-mate/
 │   ├── inserimento/
 │   ├── regia/
 │   └── display/
-├── static/
 ├── static/vendor/       # Tailwind e Alpine.js in locale (funzionamento offline)
 ├── packaging/           # Configurazione PyInstaller e Inno Setup, icona
+├── VERSION              # Numero di versione usato dall'installer
 ├── build_installer.bat  # Crea l'installer Windows
 ├── avvia.bat            # Script di avvio Windows
 ├── avvia.sh             # Script di avvio Linux/macOS

@@ -100,7 +100,7 @@ class Team(Base):
     competition_id: Mapped[int] = mapped_column(Integer, ForeignKey("competitions.id"))
     number: Mapped[int] = mapped_column(Integer)  # 1-based id within competition
     name: Mapped[str] = mapped_column(String(200))
-    city: Mapped[str] = mapped_column(String(200))
+    city: Mapped[str] = mapped_column(String(200), default="")  # facoltativa: "" se non indicata
     is_guest: Mapped[bool] = mapped_column(Boolean, default=False)
 
     competition: Mapped["Competition"] = relationship("Competition", back_populates="teams")
@@ -136,6 +136,7 @@ class Submission(Base):
     # game_seconds: game time at submission (capped at duration for post-game)
     game_seconds: Mapped[float] = mapped_column(Float, default=0.0)
     submitted_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+    device_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # cookie del dispositivo che l'ha inserita
 
     competition: Mapped["Competition"] = relationship("Competition", back_populates="submissions")
     team: Mapped["Team"] = relationship("Team", back_populates="submissions")

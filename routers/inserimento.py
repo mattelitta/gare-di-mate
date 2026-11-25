@@ -24,9 +24,20 @@ def get_comp_or_404(comp_id: int, db: Session) -> Competition:
 @router.get("/", response_class=HTMLResponse)
 async def inserimento_home(request: Request, db: Session = Depends(get_db)):
     comps = db.query(Competition).filter(
-        Competition.status.in_(["running", "paused", "ended"])
+        Competition.status.in_(["created", "running", "paused", "ended"])
     ).order_by(Competition.created_at.desc()).all()
     return templates.TemplateResponse("inserimento/home.html", {"request": request, "comps": comps})
+
+
+def require_started(comp: Competition):
+    if comp.status == "created":
+        raise HTTPException(status_code=409, detail="La gara non è ancora iniziata")
+
+
+@router.get("/{comp_id}/stato")
+async def inserimento_stato(comp_id: int, db: Session = Depends(get_db)):
+    """Usato dalla pagina di inserimento per attivare l'invio appena la gara parte."""
+    return {"status": get_comp_or_404(comp_id, db).status}
 
 
 @router.get("/{comp_id}", response_class=HTMLResponse)
@@ -46,6 +57,7 @@ async def inserimento_main(request: Request, comp_id: int, db: Session = Depends
         "jolly_map": jolly_map,
         "jolly_expired": jolly_expired,
         "elapsed_min": elapsed_min,
+        "started": comp.status != "created",
     })
 
 
@@ -58,6 +70,7 @@ async def inserimento_jolly(
     db: Session = Depends(get_db),
 ):
     comp = get_comp_or_404(comp_id, db)
+    require_started(comp)
     team = db.query(Team).filter_by(competition_id=comp_id, number=int(team_number)).first()
     problem = db.query(Problem).filter_by(competition_id=comp_id, number=int(problem_number)).first()
     if not team or not problem:
@@ -90,6 +103,7 @@ async def inserimento_soluzione(
     db: Session = Depends(get_db),
 ):
     comp = get_comp_or_404(comp_id, db)
+    require_started(comp)
     team = db.query(Team).filter_by(competition_id=comp_id, number=int(team_number)).first()
     problem = db.query(Problem).filter_by(competition_id=comp_id, number=int(problem_number)).first()
     if not team or not problem:
@@ -112,24 +126,52 @@ async def inserimento_soluzione(
         is_correct=is_correct,
         is_post_game=is_post_game,
         game_seconds=game_sec,
+        device_id=request.state.device_id,
     ))
     db.commit()
     state_cache.invalidate(comp_id)
     return RedirectResponse(f"/inserimento/{comp_id}", status_code=303)
 
 
+def _consegne_url(comp_id: int, request: Request) -> str:
+    """URL dello storico che conserva i filtri attivi (passati come query string)."""
+    query = request.url.query
+    return f"/inserimento/{comp_id}/consegne" + (f"?{query}" if query else "")
+
+
 @router.get("/{comp_id}/consegne", response_class=HTMLResponse)
-async def inserimento_consegne(request: Request, comp_id: int, db: Session = Depends(get_db)):
+async def inserimento_consegne(
+    request: Request,
+    comp_id: int,
+    squadra: str = "",
+    problema: str = "",
+    mie: bool = False,
+    db: Session = Depends(get_db),
+):
     comp = get_comp_or_404(comp_id, db)
-    submissions = sorted(comp.submissions, key=lambda s: (s.game_seconds, s.submitted_at))
-    teams = {t.id: t for t in comp.teams}
-    problems = {p.id: p for p in comp.problems}
+    # Le select inviano "" per "tutte": i filtri vuoti o non numerici sono ignorati.
+    squadra = int(squadra) if squadra.isdigit() else None
+    problema = int(problema) if problema.isdigit() else None
+    ordered = sorted(comp.submissions, key=lambda s: (s.game_seconds, s.submitted_at))
+    rows = [
+        (idx, s) for idx, s in enumerate(ordered, start=1)
+        if (squadra is None or s.team_id == squadra)
+        and (problema is None or s.problem_id == problema)
+        and (not mie or s.device_id == request.state.device_id)
+    ]
     return templates.TemplateResponse("inserimento/consegne.html", {
         "request": request,
         "comp": comp,
-        "submissions": submissions,
-        "teams": teams,
-        "problems": problems,
+        "rows": rows,
+        "total": len(ordered),
+        "teams": {t.id: t for t in comp.teams},
+        "problems": {p.id: p for p in comp.problems},
+        "teams_sorted": sorted(comp.teams, key=lambda t: t.number),
+        "problems_sorted": sorted(comp.problems, key=lambda p: p.number),
+        "f_squadra": squadra,
+        "f_problema": problema,
+        "f_mie": mie,
+        "query": request.url.query,
     })
 
 
@@ -144,7 +186,7 @@ async def inserimento_elimina_consegna(
     db.delete(sub)
     db.commit()
     state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/inserimento/{comp_id}/consegne", status_code=303)
+    return RedirectResponse(_consegne_url(comp_id, request), status_code=303)
 
 
 @router.get("/{comp_id}/consegne/{sub_id}/modifica", response_class=HTMLResponse)
@@ -163,6 +205,7 @@ async def inserimento_modifica_form(
         "sub": sub,
         "teams": teams,
         "problems": problems,
+        "query": request.url.query,
     })
 
 
@@ -190,4 +233,4 @@ async def inserimento_modifica_consegna(
     sub.is_correct = answer == problem.answer
     db.commit()
     state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/inserimento/{comp_id}/consegne", status_code=303)
+    return RedirectResponse(_consegne_url(comp_id, request), status_code=303)

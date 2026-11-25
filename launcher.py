@@ -28,6 +28,13 @@ FONT = "Segoe UI"
 GREEN, ORANGE, RED = "#15803d", "#c2410c", "#b91c1c"
 
 
+def app_version() -> str:
+    try:
+        return (BASE_DIR / "VERSION").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def port_is_free() -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
@@ -52,6 +59,7 @@ class Launcher:
         self.thread = None
         self.browser_opened = False
         self.closing = False
+        self.fatal_error = None
 
         root.title("Gare di Mate")
         root.resizable(False, False)
@@ -84,7 +92,10 @@ class Launcher:
         tk.Label(root, font=(FONT, 11), fg="#555555", justify="center",
                  text="Tenere aperta questa finestra per tutta la gara:\n"
                       "chiudendola il server si ferma.").pack(pady=(16, 8), **pad)
-        tk.Button(root, text="Chiudi Gare di Mate", command=self.on_close, **btn).pack(pady=(0, 20), **pad)
+        tk.Button(root, text="Chiudi Gare di Mate", command=self.on_close, **btn).pack(pady=(0, 8), **pad)
+        version = app_version()
+        tk.Label(root, text=f"Versione {version}" if version else "", font=(FONT, 9),
+                 fg="#888888").pack(pady=(0, 10))
 
         self.refresh_ip()
         root.after(100, self.start_server)
@@ -115,6 +126,14 @@ class Launcher:
 
     def run_server(self):
         try:
+            from database import init_db
+            from migrations import MigrationError, SchemaTooNewError
+            try:
+                init_db()
+            except (MigrationError, SchemaTooNewError) as e:
+                logging.exception("Database non utilizzabile")
+                self.fatal_error = str(e)
+                return
             import uvicorn
             from main import app
             config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_config=None)
@@ -127,8 +146,8 @@ class Launcher:
         if self.closing:
             return
         if self.thread and not self.thread.is_alive():
-            self.set_status("Il server si è fermato per un errore", RED)
-            messagebox.showerror("Gare di Mate",
+            self.set_status("Il server non è attivo", RED)
+            messagebox.showerror("Gare di Mate", self.fatal_error or
                                  "Il server si è fermato per un errore.\n\n"
                                  f"Dettagli nel file:\n{LOG_PATH}")
             return
@@ -156,7 +175,25 @@ class Launcher:
         self.root.destroy()
 
 
+def migrate_only() -> int:
+    """Modalità --migra, usata dall'installer: aggiorna il database e termina.
+    Codici di uscita: 0 = ok, 1 = errore, 2 = database di una versione più recente."""
+    from database import init_db
+    from migrations import SchemaTooNewError
+    try:
+        logging.info("--migra: database %s", init_db())
+        return 0
+    except SchemaTooNewError:
+        logging.exception("--migra: database di una versione più recente")
+        return 2
+    except Exception:
+        logging.exception("--migra: errore")
+        return 1
+
+
 def main():
+    if "--migra" in sys.argv[1:]:
+        sys.exit(migrate_only())
     try:
         import ctypes
         ctypes.windll.shcore.SetProcessDpiAwareness(1)

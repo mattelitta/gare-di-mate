@@ -56,6 +56,21 @@ async def access_gate(request: Request, call_next):
     return RedirectResponse("/inserimento/", status_code=303)
 
 
+@app.middleware("http")
+async def device_cookie(request: Request, call_next):
+    """Assegna a ogni browser un identificativo stabile (per filtrare le sue consegne)."""
+    device = request.cookies.get(auth.DEVICE_COOKIE, "")
+    is_new = not auth.valid_device_id(device)
+    if is_new:
+        device = auth.new_device_id()
+    request.state.device_id = device
+    response = await call_next(request)
+    if is_new:
+        response.set_cookie(auth.DEVICE_COOKIE, device, max_age=auth.DEVICE_COOKIE_MAX_AGE,
+                            httponly=True, samesite="lax")
+    return response
+
+
 def _safe_next(nxt: str) -> str:
     if nxt.startswith("/") and not nxt.startswith("//") and not nxt.startswith("/\\"):
         return nxt

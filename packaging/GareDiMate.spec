@@ -14,6 +14,7 @@ a = Analysis(
         (str(ROOT / "templates"), "templates"),
         (str(ROOT / "static"), "static"),
         (ICON, "."),
+        (str(ROOT / "VERSION"), "."),
     ],
     hiddenimports=collect_submodules("uvicorn"),
     excludes=["test_data", "test_live", "setup_test"],

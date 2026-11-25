@@ -6,6 +6,38 @@
   <a href="/inserimento/{{ comp.id }}" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">← Inserimento</a>
 </div>
 
+{% set filtri_attivi = f_squadra is not none or f_problema is not none or f_mie %}
+<form method="get" class="bg-white rounded-lg shadow p-3 mb-3 flex flex-wrap items-end gap-4">
+  <div>
+    <label class="block text-xs font-medium text-gray-500 mb-1">Squadra</label>
+    <select name="squadra" onchange="this.form.submit()" class="border rounded px-2 py-1.5 text-sm">
+      <option value="">Tutte</option>
+      {% for t in teams_sorted %}
+      <option value="{{ t.id }}" {% if f_squadra == t.id %}selected{% endif %}>{{ "%02d"|format(t.number) }} — {{ t.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs font-medium text-gray-500 mb-1">Problema</label>
+    <select name="problema" onchange="this.form.submit()" class="border rounded px-2 py-1.5 text-sm">
+      <option value="">Tutti</option>
+      {% for p in problems_sorted %}
+      <option value="{{ p.id }}" {% if f_problema == p.id %}selected{% endif %}>{{ "%02d"|format(p.number) }} — {{ p.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <label class="flex items-center gap-2 text-sm py-1.5 cursor-pointer">
+    <input type="checkbox" name="mie" value="1" onchange="this.form.submit()" {% if f_mie %}checked{% endif %} class="w-4 h-4">
+    Solo inserite da questo dispositivo
+  </label>
+  {% if filtri_attivi %}
+  <a href="/inserimento/{{ comp.id }}/consegne" class="text-sm text-blue-600 hover:underline py-1.5">Azzera filtri</a>
+  {% endif %}
+  <span class="ml-auto text-sm text-gray-500 py-1.5">
+    {% if filtri_attivi %}{{ rows|length }} di {{ total }} consegne{% else %}{{ total }} consegne{% endif %}
+  </span>
+</form>
+
 <div class="bg-white rounded-lg shadow overflow-hidden">
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
@@ -21,11 +53,11 @@
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-100">
-      {% for sub in submissions %}
+      {% for idx, sub in rows %}
       {% set team = teams[sub.team_id] %}
       {% set prob = problems[sub.problem_id] %}
       <tr class="{% if sub.is_correct %}bg-green-50{% else %}bg-red-50{% endif %} hover:brightness-95">
-        <td class="px-4 py-2 text-gray-400 font-mono">{{ loop.index }}</td>
+        <td class="px-4 py-2 text-gray-400 font-mono">{{ idx }}</td>
         <td class="px-4 py-2">
           <span class="font-mono text-gray-400">{{ "%02d"|format(team.number) }}</span>
           {{ team.name }}
@@ -52,9 +84,9 @@
         </td>
         <td class="px-4 py-2">
           <div class="flex gap-2">
-            <a href="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica"
+            <a href="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica{% if query %}?{{ query }}{% endif %}"
                class="text-blue-600 hover:underline text-xs">Modifica</a>
-            <form method="post" action="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/elimina"
+            <form method="post" action="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/elimina{% if query %}?{{ query }}{% endif %}"
                   onsubmit="return confirm('Eliminare questa consegna?')">
               <button class="text-red-500 hover:underline text-xs">Elimina</button>
             </form>
@@ -62,7 +94,9 @@
         </td>
       </tr>
       {% else %}
-      <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">Nessuna consegna registrata.</td></tr>
+      <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">
+        {% if filtri_attivi %}Nessuna consegna corrisponde ai filtri.{% else %}Nessuna consegna registrata.{% endif %}
+      </td></tr>
       {% endfor %}
     </tbody>
   </table>

@@ -12,6 +12,17 @@ COOKIE_NAME = "accesso"
 COOKIE_MAX_AGE = 30 * 24 * 3600
 LOCAL_HOSTS = ("127.0.0.1", "::1", "localhost")
 
+DEVICE_COOKIE = "dispositivo"
+DEVICE_COOKIE_MAX_AGE = 400 * 24 * 3600  # massimo consentito dai browser
+
+
+def new_device_id() -> str:
+    return secrets.token_hex(16)
+
+
+def valid_device_id(value: str) -> bool:
+    return len(value) == 32 and all(c in "0123456789abcdef" for c in value)
+
 _UNSET = object()
 _expected_token = _UNSET
 

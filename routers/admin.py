@@ -98,7 +98,7 @@ async def admin_crea(
     db.add(comp)
     db.commit()
     db.refresh(comp)
-    return RedirectResponse(f"/admin/gara/{comp.id}", status_code=303)
+    return RedirectResponse(f"/admin/gara/{comp.id}/modifica#squadre", status_code=303)
 
 
 # --- Competition detail / management ---
@@ -276,7 +276,7 @@ async def admin_aggiungi_squadra(
     comp_id: int,
     number: int = Form(...),
     name: str = Form(...),
-    city: str = Form(...),
+    city: str = Form(""),
     is_guest: bool = Form(False),
     db: Session = Depends(get_db),
 ):
@@ -284,10 +284,10 @@ async def admin_aggiungi_squadra(
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    db.add(Team(competition_id=comp_id, number=number, name=name, city=city, is_guest=is_guest))
+    db.add(Team(competition_id=comp_id, number=number, name=name, city=city.strip(), is_guest=is_guest))
     db.commit()
     state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
+    return RedirectResponse(f"/admin/gara/{comp_id}/modifica#squadre", status_code=303)
 
 
 @router.post("/gara/{comp_id}/squadre/{team_id}/modifica")
@@ -297,7 +297,7 @@ async def admin_modifica_squadra(
     team_id: int,
     number: int = Form(...),
     name: str = Form(...),
-    city: str = Form(...),
+    city: str = Form(""),
     is_guest: bool = Form(False),
     db: Session = Depends(get_db),
 ):
@@ -307,11 +307,11 @@ async def admin_modifica_squadra(
         raise HTTPException(status_code=404)
     team.number = number
     team.name = name
-    team.city = city
+    team.city = city.strip()
     team.is_guest = is_guest
     db.commit()
     state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
+    return RedirectResponse(f"/admin/gara/{comp_id}/modifica#squadre", status_code=303)
 
 
 @router.post("/gara/{comp_id}/squadre/{team_id}/elimina")
@@ -325,7 +325,7 @@ async def admin_elimina_squadra(
     db.delete(team)
     db.commit()
     state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
+    return RedirectResponse(f"/admin/gara/{comp_id}/modifica#squadre", status_code=303)
 
 
 # --- Problems CRUD ---
@@ -346,7 +346,7 @@ async def admin_aggiungi_problema(
     db.add(Problem(competition_id=comp_id, number=number, name=name, answer=answer))
     db.commit()
     state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
+    return RedirectResponse(f"/admin/gara/{comp_id}/modifica#problemi", status_code=303)
 
 
 @router.post("/gara/{comp_id}/problemi/{prob_id}/modifica")
@@ -368,7 +368,7 @@ async def admin_modifica_problema(
     prob.answer = answer.strip().zfill(4)[:4]
     db.commit()
     state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
+    return RedirectResponse(f"/admin/gara/{comp_id}/modifica#problemi", status_code=303)
 
 
 @router.post("/gara/{comp_id}/problemi/{prob_id}/elimina")
@@ -382,7 +382,7 @@ async def admin_elimina_problema(
     db.delete(prob)
     db.commit()
     state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
+    return RedirectResponse(f"/admin/gara/{comp_id}/modifica#problemi", status_code=303)
 
 
 # --- Penalties ---

@@ -18,6 +18,12 @@
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4" x-data="consegna()">
 
+  <div x-show="!avviata" {% if started %}x-cloak{% endif %}
+       class="md:col-span-2 bg-blue-50 border border-blue-300 text-blue-800 rounded-lg px-4 py-3">
+    <span class="font-semibold">La gara non è ancora iniziata.</span>
+    L'invio di jolly e soluzioni si attiverà da solo appena la gara parte.
+  </div>
+
   <!-- Inserimento Jolly -->
   <div class="bg-white rounded-lg shadow p-5">
     <h2 class="font-semibold text-lg mb-4">🃏 Jolly</h2>
@@ -34,8 +40,9 @@
                placeholder="01" oninput="autoAvanza(this)"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
-      <button type="submit"
-              class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 text-lg">
+      <button type="submit" :disabled="!avviata" {% if not started %}disabled{% endif %}
+              class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 text-lg
+                     disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-purple-600">
         Registra Jolly
       </button>
     </form>
@@ -84,8 +91,9 @@
                placeholder="0000" oninput="autoAvanza(this)"
                class="w-full border-2 rounded-lg px-4 py-3 text-3xl font-mono text-center tracking-widest focus:border-green-500 outline-none">
       </div>
-      <button type="submit"
-              class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 text-lg">
+      <button type="submit" :disabled="!avviata" {% if not started %}disabled{% endif %}
+              class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 text-lg
+                     disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-green-600">
         Consegna
       </button>
     </form>
@@ -187,8 +195,21 @@ function consegna() {
     risposta: '',
     modale: false,
     corretta: false,
+    avviata: {{ 'true' if started else 'false' }},
+    init() {
+      if (this.avviata) return;
+      const timer = setInterval(async () => {
+        try {
+          const r = await fetch('/inserimento/{{ comp.id }}/stato');
+          if ((await r.json()).status !== 'created') {
+            this.avviata = true;
+            clearInterval(timer);
+          }
+        } catch (e) {}
+      }, 2000);
+    },
     apriConferma(e) {
-      if (!this.squadra || !this.problema || !this.risposta) return;
+      if (!this.avviata || !this.squadra || !this.problema || !this.risposta) return;
       const rispCorretta = RISPOSTE[parseInt(this.problema)];
       this.corretta = rispCorretta !== undefined &&
                       this.risposta.padStart(4, '0') === rispCorretta;

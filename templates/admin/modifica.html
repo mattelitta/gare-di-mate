@@ -2,7 +2,16 @@
 {% block title %}Modifica {{ comp.name }} — Admin{% endblock %}
 {% block content %}
 <div class="max-w-2xl mx-auto">
-  <h1 class="text-2xl font-bold mb-6">Modifica parametri — {{ comp.name }}</h1>
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Modifica parametri — {{ comp.name }}</h1>
+    <a href="/admin/gara/{{ comp.id }}" class="text-sm text-gray-500 hover:underline">← Torna alla gara</a>
+  </div>
+  {% if comp.status != 'created' %}
+  <div class="bg-orange-100 border border-orange-300 text-orange-800 rounded-lg px-4 py-3 mb-4 text-sm">
+    <span class="font-semibold">La gara è già iniziata.</span>
+    Modificare parametri, squadre o problemi (soprattutto le risposte) cambia subito i punteggi.
+  </div>
+  {% endif %}
   <form method="post" action="/admin/gara/{{ comp.id }}/modifica" class="bg-white rounded-lg shadow p-6 space-y-4">
 
     <div class="grid grid-cols-2 gap-4">
@@ -17,8 +26,8 @@
       <div>
         <label class="block text-sm font-medium mb-1">Tema display</label>
         <select name="display_theme" class="w-full border rounded px-3 py-2">
-          <option value="dark" {% if comp.display_theme != 'light' %}selected{% endif %}>Scuro (default)</option>
-          <option value="light" {% if comp.display_theme == 'light' %}selected{% endif %}>Chiaro (proiezione)</option>
+          <option value="dark" {% if comp.display_theme != 'light' %}selected{% endif %}>Scuro</option>
+          <option value="light" {% if comp.display_theme == 'light' %}selected{% endif %}>Chiaro (default, proiezione)</option>
         </select>
       </div>
     </div>
@@ -83,9 +92,129 @@
     </div>
 
     <div class="flex gap-3 pt-2">
-      <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded hover:bg-blue-800">Salva</button>
+      <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded hover:bg-blue-800">Salva parametri</button>
       <a href="/admin/gara/{{ comp.id }}" class="px-6 py-2 rounded border hover:bg-gray-50">Annulla</a>
     </div>
   </form>
+
+  <!-- Squadre -->
+  <div id="squadre" class="bg-white rounded-lg shadow p-6 mt-6 scroll-mt-4">
+    <h2 class="font-semibold text-gray-700 mb-3">Squadre ({{ comp.teams|length }})</h2>
+    <div class="space-y-1 mb-4">
+      {% for team in comp.teams|sort(attribute='number') %}
+      <div class="flex items-center justify-between text-sm py-1 border-b last:border-0">
+        <span>
+          <span class="font-mono text-xs text-gray-400 mr-1">{{ "%02d"|format(team.number) }}</span>
+          <strong>{{ team.name }}</strong>{% if team.city %} ({{ team.city }}){% endif %}
+          {% if team.is_guest %}<span class="text-xs text-orange-500 ml-1">ospite</span>{% endif %}
+        </span>
+        <div class="flex gap-2">
+          <a href="#" onclick="openEditTeam({{ team.id }}, {{ team.number }}, '{{ team.name|replace("'","\\'")|e }}', '{{ team.city|replace("'","\\'")|e }}', {{ team.is_guest|lower }}); return false;"
+             class="text-blue-600 hover:underline text-xs">modifica</a>
+          <form method="post" action="/admin/gara/{{ comp.id }}/squadre/{{ team.id }}/elimina"
+                onsubmit="return confirm('Eliminare {{ team.name|replace("'","\\'")|e }}?')">
+            <button class="text-red-500 hover:underline text-xs">elimina</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-gray-400 text-sm">Nessuna squadra.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="/admin/gara/{{ comp.id }}/squadre/aggiungi" class="grid grid-cols-6 gap-2 text-sm items-center">
+      <input name="number" type="number" placeholder="N°" class="border rounded px-2 py-1.5" required>
+      <input name="name" placeholder="Nome" class="border rounded px-2 py-1.5 col-span-2" required>
+      <input name="city" placeholder="Città (facoltativa)" class="border rounded px-2 py-1.5 col-span-2">
+      <button type="submit" class="bg-blue-700 text-white rounded px-2 py-1.5 hover:bg-blue-800">Aggiungi</button>
+      <label class="col-span-6 flex items-center gap-1 text-xs text-gray-600">
+        <input name="is_guest" type="checkbox" value="true"> Ospite
+      </label>
+    </form>
+  </div>
+
+  <!-- Problemi -->
+  <div id="problemi" class="bg-white rounded-lg shadow p-6 mt-6 scroll-mt-4">
+    <h2 class="font-semibold text-gray-700 mb-3">Problemi ({{ comp.problems|length }})</h2>
+    <div class="space-y-1 mb-4">
+      {% for prob in comp.problems|sort(attribute='number') %}
+      <div class="flex items-center justify-between text-sm py-1 border-b last:border-0">
+        <span>
+          <span class="font-mono text-xs text-gray-400 mr-1">{{ "%02d"|format(prob.number) }}</span>
+          <strong>{{ prob.name }}</strong>
+          <span class="font-mono text-xs text-gray-500 ml-1">[{{ prob.answer }}]</span>
+        </span>
+        <div class="flex gap-2">
+          <a href="#" onclick="openEditProb({{ prob.id }}, {{ prob.number }}, '{{ prob.name|replace("'","\\'")|e }}', '{{ prob.answer }}'); return false;"
+             class="text-blue-600 hover:underline text-xs">modifica</a>
+          <form method="post" action="/admin/gara/{{ comp.id }}/problemi/{{ prob.id }}/elimina"
+                onsubmit="return confirm('Eliminare {{ prob.name|replace("'","\\'")|e }}?')">
+            <button class="text-red-500 hover:underline text-xs">elimina</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-gray-400 text-sm">Nessun problema.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="/admin/gara/{{ comp.id }}/problemi/aggiungi" class="grid grid-cols-6 gap-2 text-sm">
+      <input name="number" type="number" placeholder="N°" class="border rounded px-2 py-1.5" required>
+      <input name="name" placeholder="Nome" class="border rounded px-2 py-1.5 col-span-3" required>
+      <input name="answer" placeholder="Risposta" maxlength="4" class="border rounded px-2 py-1.5 font-mono" required>
+      <button type="submit" class="bg-blue-700 text-white rounded px-2 py-1.5 hover:bg-blue-800">Aggiungi</button>
+    </form>
+  </div>
 </div>
+
+<!-- Finestra modifica squadra -->
+<div id="modal-team" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-xl p-6 w-96">
+    <h3 class="font-semibold mb-4">Modifica squadra</h3>
+    <form id="form-edit-team" method="post" class="space-y-3">
+      <input id="et-number" name="number" type="number" placeholder="N°" class="w-full border rounded px-3 py-2" required>
+      <input id="et-name" name="name" placeholder="Nome" class="w-full border rounded px-3 py-2" required>
+      <input id="et-city" name="city" placeholder="Città (facoltativa)" class="w-full border rounded px-3 py-2">
+      <label class="flex items-center gap-2"><input id="et-guest" name="is_guest" type="checkbox" value="true"> Ospite</label>
+      <div class="flex gap-2 pt-1">
+        <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800">Salva</button>
+        <button type="button" onclick="document.getElementById('modal-team').classList.add('hidden')"
+                class="px-4 py-2 rounded border hover:bg-gray-50">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Finestra modifica problema -->
+<div id="modal-prob" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-xl p-6 w-96">
+    <h3 class="font-semibold mb-4">Modifica problema</h3>
+    <form id="form-edit-prob" method="post" class="space-y-3">
+      <input id="ep-number" name="number" type="number" placeholder="N°" class="w-full border rounded px-3 py-2" required>
+      <input id="ep-name" name="name" placeholder="Nome" class="w-full border rounded px-3 py-2" required>
+      <input id="ep-answer" name="answer" placeholder="Risposta" maxlength="4" class="w-full border rounded px-3 py-2 font-mono" required>
+      <div class="flex gap-2 pt-1">
+        <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800">Salva</button>
+        <button type="button" onclick="document.getElementById('modal-prob').classList.add('hidden')"
+                class="px-4 py-2 rounded border hover:bg-gray-50">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditTeam(id, number, name, city, isGuest) {
+  document.getElementById('form-edit-team').action = '/admin/gara/{{ comp.id }}/squadre/' + id + '/modifica';
+  document.getElementById('et-number').value = number;
+  document.getElementById('et-name').value = name;
+  document.getElementById('et-city').value = city;
+  document.getElementById('et-guest').checked = isGuest;
+  document.getElementById('modal-team').classList.remove('hidden');
+}
+function openEditProb(id, number, name, answer) {
+  document.getElementById('form-edit-prob').action = '/admin/gara/{{ comp.id }}/problemi/' + id + '/modifica';
+  document.getElementById('ep-number').value = number;
+  document.getElementById('ep-name').value = name;
+  document.getElementById('ep-answer').value = answer;
+  document.getElementById('modal-prob').classList.remove('hidden');
+}
+</script>
 {% endblock %}

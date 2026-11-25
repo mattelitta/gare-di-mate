@@ -4,13 +4,13 @@
 <div class="max-w-md mx-auto">
   <h1 class="text-xl font-bold mb-6">Modifica consegna</h1>
   <div class="bg-white rounded-lg shadow p-6">
-    <form method="post" action="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica" class="space-y-4">
+    <form method="post" action="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica{% if query %}?{{ query }}{% endif %}" class="space-y-4">
       <div>
         <label class="block text-sm font-medium mb-1">Squadra</label>
         <select name="team_id" class="w-full border rounded px-3 py-2" required>
           {% for team in teams %}
           <option value="{{ team.id }}" {% if team.id == sub.team_id %}selected{% endif %}>
-            {{ "%02d"|format(team.number) }} — {{ team.name }} ({{ team.city }})
+            {{ "%02d"|format(team.number) }} — {{ team.name }}{% if team.city %} ({{ team.city }}){% endif %}
           </option>
           {% endfor %}
         </select>
@@ -32,7 +32,7 @@
       </div>
       <div class="flex gap-3 pt-2">
         <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded hover:bg-blue-800">Salva</button>
-        <a href="/inserimento/{{ comp.id }}/consegne" class="px-6 py-2 rounded border hover:bg-gray-50">Annulla</a>
+        <a href="/inserimento/{{ comp.id }}/consegne{% if query %}?{{ query }}{% endif %}" class="px-6 py-2 rounded border hover:bg-gray-50">Annulla</a>
       </div>
     </form>
   </div>

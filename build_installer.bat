@@ -1,11 +1,15 @@
 @echo off
 rem Costruisce l'installer Windows: dist\GareDiMate-Setup-<versione>.exe
-rem Uso: build_installer.bat [versione]     (es. build_installer.bat 1.1.0)
+rem La versione si legge dal file VERSION: aggiornarlo prima di ogni nuova release.
 setlocal
 cd /d "%~dp0"
 
-set VERSION=%~1
-if "%VERSION%"=="" set VERSION=1.0.0
+set /p VERSION=<VERSION
+if "%VERSION%"=="" (
+    echo File VERSION mancante o vuoto.
+    exit /b 1
+)
+echo Versione: %VERSION%
 
 if exist "venv\Scripts\python.exe" (
     set PYTHON=venv\Scripts\python.exe
