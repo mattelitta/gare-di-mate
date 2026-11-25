@@ -8,9 +8,10 @@ from sqlalchemy.orm import Session
 from cache import state_cache
 from database import get_db
 from models import Competition, JollyChoice, Problem, Submission, Team
+from paths import TEMPLATES_DIR
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
 def get_comp_or_404(comp_id: int, db: Session) -> Competition:

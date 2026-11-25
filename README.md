@@ -14,7 +14,35 @@ Software di gestione per gare a squadre di matematica. Permette di amministrare 
 - Python 3.11+
 - Dipendenze: `fastapi`, `uvicorn[standard]`, `sqlalchemy`, `jinja2`, `python-multipart`
 
-## Installazione
+## Installazione su Windows (consigliata)
+
+1. Scaricare ed eseguire `GareDiMate-Setup-<versione>.exe` e seguire la procedura guidata.
+   Python non serve: è già incluso.
+2. Aprire **Gare di Mate** dall'icona sul desktop. Si apre una finestra che avvia il server,
+   mostra l'indirizzo per gli altri dispositivi e apre il pannello Admin nel browser.
+3. Tenere aperta la finestra per tutta la gara: chiudendola il server si ferma.
+
+L'installer configura da solo il firewall di Windows (solo per Gare di Mate, porta 8000,
+dispositivi della rete locale). I dati sono salvati in `Documenti\Gare di Mate` e restano
+anche disinstallando il programma.
+
+Al primo avvio Windows può mostrare "Windows ha protetto il PC" (l'eseguibile non è firmato
+digitalmente): cliccare **Ulteriori informazioni** → **Esegui comunque**.
+
+L'app funziona completamente offline: non serve una connessione a internet.
+
+### Creare l'installer
+
+Serve un PC Windows con Python, PyInstaller (`py -m pip install pyinstaller`)
+e Inno Setup 6 (`winget install JRSoftware.InnoSetup`). Poi:
+
+```bat
+build_installer.bat 1.0.0
+```
+
+Il risultato è `dist\GareDiMate-Setup-1.0.0.exe`.
+
+## Installazione da sorgente (sviluppo, Linux, macOS)
 
 ```bash
 git clone https://github.com/mattelitta/gare-di-mate.git
@@ -106,6 +134,8 @@ La **scala del testo** di ogni display (1–5) è regolabile dalla Regia in temp
 ```
 gare-di-mate/
 ├── main.py              # Applicazione FastAPI, controllo accesso, broadcast loop cache
+├── launcher.py          # Finestra di avvio (eseguibile Windows)
+├── paths.py             # Percorsi di template, file statici e database
 ├── auth.py              # Password di accesso per i dispositivi in rete
 ├── database.py          # Setup SQLite / SQLAlchemy, eager loading, migrazioni
 ├── models.py            # Modelli dati (Competition, Team, Problem, ...)
@@ -123,6 +153,9 @@ gare-di-mate/
 │   ├── regia/
 │   └── display/
 ├── static/
+├── static/vendor/       # Tailwind e Alpine.js in locale (funzionamento offline)
+├── packaging/           # Configurazione PyInstaller e Inno Setup, icona
+├── build_installer.bat  # Crea l'installer Windows
 ├── avvia.bat            # Script di avvio Windows
 ├── avvia.sh             # Script di avvio Linux/macOS
 ├── setup_test.py        # Crea una gara di prova pronta all'avvio

@@ -1,0 +1,22 @@
+﻿GARE DI MATE - COME SI USA
+
+1. Fare doppio clic sull'icona "Gare di Mate" sul desktop.
+   Si apre una piccola finestra e, dopo qualche secondo,
+   il pannello Admin nel browser.
+
+2. Nel pannello Admin impostare la "password di accesso":
+   servirà a tablet e computer dei display per collegarsi.
+
+3. Sugli altri dispositivi (collegati allo stesso router)
+   aprire il browser e scrivere l'indirizzo mostrato nella
+   finestra di Gare di Mate (es. http://192.168.1.10:8000).
+
+4. Tenere aperta la finestra di Gare di Mate per tutta la gara.
+   Chiudendola, il server si ferma.
+
+I dati delle gare sono salvati in Documenti\Gare di Mate.
+Per fare un backup basta copiare quella cartella.
+
+Nota: al primo avvio Windows potrebbe mostrare il messaggio
+"Windows ha protetto il PC". Cliccare su "Ulteriori informazioni"
+e poi su "Esegui comunque".

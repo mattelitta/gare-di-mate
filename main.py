@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 import auth
 from database import get_db, init_db, SessionLocal
+from paths import STATIC_DIR, TEMPLATES_DIR
 from routers import admin, inserimento, regia, display
 
 
@@ -22,8 +23,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 app.include_router(admin.router, prefix="/admin")
 app.include_router(inserimento.router, prefix="/inserimento")

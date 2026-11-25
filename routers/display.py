@@ -9,9 +9,10 @@ from cache import state_cache
 from database import get_db, load_comp_full
 from engine import compute_state, rank_teams
 from models import Competition, Display
+from paths import TEMPLATES_DIR
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
 def get_client_ip(request: Request) -> str:

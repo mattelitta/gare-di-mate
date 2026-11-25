@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Competition, Display
+from paths import TEMPLATES_DIR
 
 router = APIRouter()
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 VIEWS = ["test", "ranking", "team_list", "problem_values", "competition_status", "final_ranking"]
 
