@@ -12,12 +12,6 @@ templates = Jinja2Templates(directory="templates")
 VIEWS = ["test", "ranking", "team_list", "problem_values", "competition_status", "final_ranking"]
 
 
-def check_password(comp: Competition, request: Request):
-    if not comp.password:
-        return True
-    return request.cookies.get(f"auth_{comp.id}", "") == comp.password
-
-
 @router.get("/", response_class=HTMLResponse)
 async def regia_home(request: Request, db: Session = Depends(get_db)):
     comps = db.query(Competition).filter(
@@ -26,37 +20,11 @@ async def regia_home(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("regia/home.html", {"request": request, "comps": comps})
 
 
-@router.get("/{comp_id}/login", response_class=HTMLResponse)
-async def regia_login_form(request: Request, comp_id: int, db: Session = Depends(get_db)):
-    comp = db.get(Competition, comp_id)
-    if not comp:
-        raise HTTPException(status_code=404)
-    return templates.TemplateResponse("regia/login.html", {"request": request, "comp": comp})
-
-
-@router.post("/{comp_id}/login")
-async def regia_login(
-    request: Request, comp_id: int, password: str = Form(""), db: Session = Depends(get_db)
-):
-    comp = db.get(Competition, comp_id)
-    if not comp:
-        raise HTTPException(status_code=404)
-    if comp.password and password != comp.password:
-        return templates.TemplateResponse(
-            "regia/login.html", {"request": request, "comp": comp, "error": "Password errata"}
-        )
-    response = RedirectResponse(f"/regia/{comp_id}", status_code=303)
-    response.set_cookie(f"auth_{comp_id}", password, httponly=True)
-    return response
-
-
 @router.get("/{comp_id}", response_class=HTMLResponse)
 async def regia_main(request: Request, comp_id: int, db: Session = Depends(get_db)):
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    if comp.password and not check_password(comp, request):
-        return RedirectResponse(f"/regia/{comp_id}/login")
     displays = sorted(comp.displays, key=lambda d: d.name)
     return templates.TemplateResponse("regia/main.html", {
         "request": request,
@@ -73,8 +41,6 @@ async def regia_aggiungi_display(
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    if comp.password and not check_password(comp, request):
-        raise HTTPException(status_code=403)
     db.add(Display(competition_id=comp_id, name=name, current_view="test"))
     db.commit()
     return RedirectResponse(f"/regia/{comp_id}", status_code=303)
@@ -91,8 +57,6 @@ async def regia_set_vista(
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    if comp.password and not check_password(comp, request):
-        raise HTTPException(status_code=403)
     disp = db.get(Display, display_id)
     if not disp or disp.competition_id != comp_id:
         raise HTTPException(status_code=404)
@@ -110,8 +74,6 @@ async def regia_elimina_display(
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    if comp.password and not check_password(comp, request):
-        raise HTTPException(status_code=403)
     disp = db.get(Display, display_id)
     if not disp or disp.competition_id != comp_id:
         raise HTTPException(status_code=404)
@@ -131,8 +93,6 @@ async def regia_set_scala(
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    if comp.password and not check_password(comp, request):
-        raise HTTPException(status_code=403)
     disp = db.get(Display, display_id)
     if not disp or disp.competition_id != comp_id:
         raise HTTPException(status_code=404)
@@ -146,8 +106,6 @@ async def regia_rivela(request: Request, comp_id: int, db: Session = Depends(get
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    if comp.password and not check_password(comp, request):
-        raise HTTPException(status_code=403)
     num_teams = len([t for t in comp.teams if not t.is_guest])
     if comp.revealed_positions < num_teams:
         comp.revealed_positions += 1
@@ -160,8 +118,6 @@ async def regia_rivela_reset(request: Request, comp_id: int, db: Session = Depen
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    if comp.password and not check_password(comp, request):
-        raise HTTPException(status_code=403)
     comp.revealed_positions = 0
     db.commit()
     return RedirectResponse(f"/regia/{comp_id}", status_code=303)

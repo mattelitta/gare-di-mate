@@ -20,16 +20,6 @@ def get_comp_or_404(comp_id: int, db: Session) -> Competition:
     return comp
 
 
-def check_password(comp: Competition, request: Request):
-    if not comp.password:
-        return
-    session_key = f"auth_{comp.id}"
-    # Simple cookie-based auth
-    token = request.cookies.get(session_key, "")
-    if token != comp.password:
-        raise HTTPException(status_code=403, detail="Password richiesta")
-
-
 @router.get("/", response_class=HTMLResponse)
 async def inserimento_home(request: Request, db: Session = Depends(get_db)):
     comps = db.query(Competition).filter(
@@ -38,33 +28,9 @@ async def inserimento_home(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("inserimento/home.html", {"request": request, "comps": comps})
 
 
-@router.get("/{comp_id}/login", response_class=HTMLResponse)
-async def inserimento_login_form(request: Request, comp_id: int, db: Session = Depends(get_db)):
-    comp = get_comp_or_404(comp_id, db)
-    return templates.TemplateResponse("inserimento/login.html", {"request": request, "comp": comp})
-
-
-@router.post("/{comp_id}/login")
-async def inserimento_login(
-    request: Request, comp_id: int, password: str = Form(""), db: Session = Depends(get_db)
-):
-    comp = get_comp_or_404(comp_id, db)
-    if comp.password and password != comp.password:
-        return templates.TemplateResponse(
-            "inserimento/login.html", {"request": request, "comp": comp, "error": "Password errata"}
-        )
-    response = RedirectResponse(f"/inserimento/{comp_id}", status_code=303)
-    response.set_cookie(f"auth_{comp_id}", password, httponly=True)
-    return response
-
-
 @router.get("/{comp_id}", response_class=HTMLResponse)
 async def inserimento_main(request: Request, comp_id: int, db: Session = Depends(get_db)):
     comp = get_comp_or_404(comp_id, db)
-    if comp.password:
-        token = request.cookies.get(f"auth_{comp_id}", "")
-        if token != comp.password:
-            return RedirectResponse(f"/inserimento/{comp_id}/login")
     teams = sorted(comp.teams, key=lambda t: t.number)
     problems = sorted(comp.problems, key=lambda p: p.number)
     # Get jolly choices already made
@@ -91,11 +57,6 @@ async def inserimento_jolly(
     db: Session = Depends(get_db),
 ):
     comp = get_comp_or_404(comp_id, db)
-    if comp.password:
-        token = request.cookies.get(f"auth_{comp_id}", "")
-        if token != comp.password:
-            raise HTTPException(status_code=403)
-
     team = db.query(Team).filter_by(competition_id=comp_id, number=int(team_number)).first()
     problem = db.query(Problem).filter_by(competition_id=comp_id, number=int(problem_number)).first()
     if not team or not problem:
@@ -128,11 +89,6 @@ async def inserimento_soluzione(
     db: Session = Depends(get_db),
 ):
     comp = get_comp_or_404(comp_id, db)
-    if comp.password:
-        token = request.cookies.get(f"auth_{comp_id}", "")
-        if token != comp.password:
-            raise HTTPException(status_code=403)
-
     team = db.query(Team).filter_by(competition_id=comp_id, number=int(team_number)).first()
     problem = db.query(Problem).filter_by(competition_id=comp_id, number=int(problem_number)).first()
     if not team or not problem:
@@ -164,11 +120,6 @@ async def inserimento_soluzione(
 @router.get("/{comp_id}/consegne", response_class=HTMLResponse)
 async def inserimento_consegne(request: Request, comp_id: int, db: Session = Depends(get_db)):
     comp = get_comp_or_404(comp_id, db)
-    if comp.password:
-        token = request.cookies.get(f"auth_{comp_id}", "")
-        if token != comp.password:
-            return RedirectResponse(f"/inserimento/{comp_id}/login")
-
     submissions = sorted(comp.submissions, key=lambda s: (s.game_seconds, s.submitted_at))
     teams = {t.id: t for t in comp.teams}
     problems = {p.id: p for p in comp.problems}
@@ -186,10 +137,6 @@ async def inserimento_elimina_consegna(
     request: Request, comp_id: int, sub_id: int, db: Session = Depends(get_db)
 ):
     comp = get_comp_or_404(comp_id, db)
-    if comp.password:
-        token = request.cookies.get(f"auth_{comp_id}", "")
-        if token != comp.password:
-            raise HTTPException(status_code=403)
     sub = db.get(Submission, sub_id)
     if not sub or sub.competition_id != comp_id:
         raise HTTPException(status_code=404)
@@ -204,10 +151,6 @@ async def inserimento_modifica_form(
     request: Request, comp_id: int, sub_id: int, db: Session = Depends(get_db)
 ):
     comp = get_comp_or_404(comp_id, db)
-    if comp.password:
-        token = request.cookies.get(f"auth_{comp_id}", "")
-        if token != comp.password:
-            return RedirectResponse(f"/inserimento/{comp_id}/login")
     sub = db.get(Submission, sub_id)
     if not sub or sub.competition_id != comp_id:
         raise HTTPException(status_code=404)
@@ -233,10 +176,6 @@ async def inserimento_modifica_consegna(
     db: Session = Depends(get_db),
 ):
     comp = get_comp_or_404(comp_id, db)
-    if comp.password:
-        token = request.cookies.get(f"auth_{comp_id}", "")
-        if token != comp.password:
-            raise HTTPException(status_code=403)
     sub = db.get(Submission, sub_id)
     if not sub or sub.competition_id != comp_id:
         raise HTTPException(status_code=404)

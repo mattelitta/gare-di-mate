@@ -20,7 +20,7 @@ def get_db():
 
 
 def init_db():
-    from models import Competition, Team, Problem, Submission, JollyChoice, Penalty, Display  # noqa
+    from models import Competition, Team, Problem, Submission, JollyChoice, Penalty, Display, Setting  # noqa
     Base.metadata.create_all(bind=engine)
     _migrate_db()
 

@@ -31,9 +31,6 @@ class Competition(Base):
     num_qualified: Mapped[int] = mapped_column(Integer, default=0)
     final_reveal_count: Mapped[int] = mapped_column(Integer, default=3)  # positions revealed one by one
 
-    # Auth
-    password: Mapped[str | None] = mapped_column(String(200), nullable=True)
-
     # State
     status: Mapped[str] = mapped_column(String(20), default="created")  # created|running|paused|ended
     started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -172,6 +169,13 @@ class Penalty(Base):
 
     competition: Mapped["Competition"] = relationship("Competition", back_populates="penalties")
     team: Mapped["Team"] = relationship("Team", back_populates="penalties")
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
 
 
 class Display(Base):

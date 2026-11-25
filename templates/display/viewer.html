@@ -92,6 +92,10 @@ function statusLabel(s) {
 async function fetchState() {
   try {
     const r = await fetch(API_URL);
+    if (r.status === 401) {
+      location.href = '/accesso?next=' + encodeURIComponent(location.pathname);
+      return;
+    }
     if (!r.ok) return;
     state = await r.json();
     document.body.dataset.theme = state.display_theme || 'dark';

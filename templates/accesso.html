@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Accesso — Gare di Mate{% endblock %}
+{% block navlinks %}{% endblock %}
+{% block content %}
+<div class="max-w-sm mx-auto mt-16 bg-white rounded-lg shadow p-6">
+  <h1 class="text-xl font-bold mb-4">Accesso</h1>
+  {% if not configured %}
+    <p class="text-sm text-gray-700">
+      L'accesso dagli altri dispositivi non è ancora configurato.
+      Imposta la password dalla pagina Admin sul computer server.
+    </p>
+  {% else %}
+    {% if error %}
+    <div class="bg-red-100 text-red-700 rounded px-3 py-2 text-sm mb-3">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/accesso" class="space-y-3">
+      <input type="hidden" name="next" value="{{ next }}">
+      <input name="password" type="password" required autofocus placeholder="Password"
+             class="w-full border-2 rounded-lg px-4 py-3 text-lg focus:border-blue-500 outline-none">
+      <button type="submit"
+              class="w-full bg-blue-700 text-white py-3 rounded-lg font-semibold hover:bg-blue-800">
+        Entra
+      </button>
+    </form>
+  {% endif %}
+</div>
+{% endblock %}

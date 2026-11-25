@@ -13,10 +13,18 @@
 <body class="bg-gray-100 min-h-screen text-gray-900">
   <nav class="bg-blue-700 text-white px-6 py-3 flex items-center gap-6 shadow">
     <span class="font-bold text-lg">🔢 Gare di Mate</span>
+    {% block navlinks %}
+    {% if request.state.is_local %}
     <a href="/admin/" class="hover:underline text-sm">Admin</a>
     <a href="/inserimento/" class="hover:underline text-sm">Inserimento</a>
     <a href="/regia/" class="hover:underline text-sm">Regia</a>
     <a href="/display/" class="hover:underline text-sm">Display</a>
+    {% else %}
+    <a href="/inserimento/" class="hover:underline text-sm">Inserimento</a>
+    <a href="/display/" class="hover:underline text-sm">Display</a>
+    <a href="/esci" class="hover:underline text-sm ml-auto">Esci</a>
+    {% endif %}
+    {% endblock %}
   </nav>
   <main class="p-6 max-w-6xl mx-auto">
     {% block content %}{% endblock %}

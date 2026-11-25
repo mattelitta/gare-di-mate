@@ -21,12 +21,6 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def check_password(comp: Competition, request: Request) -> bool:
-    if not comp.password:
-        return True
-    return request.cookies.get(f"auth_{comp.id}", "") == comp.password
-
-
 @router.get("/", response_class=HTMLResponse)
 async def display_home(request: Request, db: Session = Depends(get_db)):
     comps = db.query(Competition).filter(
@@ -35,38 +29,12 @@ async def display_home(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("display/home.html", {"request": request, "comps": comps})
 
 
-@router.get("/{comp_id}/login", response_class=HTMLResponse)
-async def display_login_form(request: Request, comp_id: int, db: Session = Depends(get_db)):
-    comp = db.get(Competition, comp_id)
-    if not comp:
-        raise HTTPException(status_code=404)
-    return templates.TemplateResponse("display/login.html", {"request": request, "comp": comp})
-
-
-@router.post("/{comp_id}/login")
-async def display_login(
-    request: Request, comp_id: int, password: str = Form(""), db: Session = Depends(get_db)
-):
-    comp = db.get(Competition, comp_id)
-    if not comp:
-        raise HTTPException(status_code=404)
-    if comp.password and password != comp.password:
-        return templates.TemplateResponse(
-            "display/login.html", {"request": request, "comp": comp, "error": "Password errata"}
-        )
-    response = RedirectResponse(f"/display/{comp_id}", status_code=303)
-    response.set_cookie(f"auth_{comp_id}", password, httponly=True)
-    return response
-
-
 @router.get("/{comp_id}", response_class=HTMLResponse)
 async def display_select(request: Request, comp_id: int, db: Session = Depends(get_db)):
     """Display selection: choose which named display this screen is."""
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    if not check_password(comp, request):
-        return RedirectResponse(f"/display/{comp_id}/login")
     displays = sorted(comp.displays, key=lambda d: d.name)
     return templates.TemplateResponse("display/select.html", {
         "request": request,
@@ -83,9 +51,6 @@ async def display_view(
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    if not check_password(comp, request):
-        return RedirectResponse(f"/display/{comp_id}/login")
-
     disp = db.get(Display, display_id)
     if not disp or disp.competition_id != comp_id:
         raise HTTPException(status_code=404)

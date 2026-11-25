@@ -1,5 +1,4 @@
 import json
-import socket
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -7,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+import auth
 from cache import state_cache
 from database import get_db, load_comp_full
 from models import Competition, Display, JollyChoice, Penalty, Problem, Submission, Team
@@ -15,20 +15,8 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 
-def get_local_ip() -> str:
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "N/D"
-
-
 def require_localhost(request: Request):
-    host = request.client.host if request.client else ""
-    if host not in ("127.0.0.1", "::1", "localhost"):
+    if not auth.is_local(request):
         raise HTTPException(status_code=403, detail="Admin accessibile solo in locale")
 
 
@@ -37,7 +25,19 @@ def require_localhost(request: Request):
 async def admin_home(request: Request, db: Session = Depends(get_db)):
     require_localhost(request)
     comps = db.query(Competition).order_by(Competition.created_at.desc()).all()
-    return templates.TemplateResponse("admin/home.html", {"request": request, "comps": comps, "local_ip": get_local_ip()})
+    return templates.TemplateResponse("admin/home.html", {
+        "request": request, "comps": comps, "local_ip": auth.get_local_ip(),
+        "access_password_set": auth.password_is_set(db),
+    })
+
+
+@router.post("/password-accesso")
+async def admin_password_accesso(request: Request, password: str = Form(...), db: Session = Depends(get_db)):
+    require_localhost(request)
+    if len(password) < 4:
+        raise HTTPException(status_code=400, detail="La password deve avere almeno 4 caratteri")
+    auth.set_password(db, password)
+    return RedirectResponse("/admin/", status_code=303)
 
 
 # --- Create competition ---
@@ -63,7 +63,6 @@ async def admin_crea(
     blackout_minute: int = Form(...),
     num_qualified: int = Form(0),
     final_reveal_count: int = Form(3),
-    password: str = Form(""),
     display_theme: str = Form("light"),
     db: Session = Depends(get_db),
 ):
@@ -92,7 +91,6 @@ async def admin_crea(
         blackout_minute=blackout_minute,
         num_qualified=num_qualified,
         final_reveal_count=final_reveal_count,
-        password=password if password else None,
         display_theme=display_theme if display_theme in ('dark', 'light') else 'dark',
         status="created",
     )
@@ -139,7 +137,6 @@ async def admin_modifica(
     blackout_minute: int = Form(...),
     num_qualified: int = Form(0),
     final_reveal_count: int = Form(3),
-    password: str = Form(""),
     display_theme: str = Form("dark"),
     db: Session = Depends(get_db),
 ):
@@ -169,7 +166,6 @@ async def admin_modifica(
     comp.blackout_minute = blackout_minute
     comp.num_qualified = num_qualified
     comp.final_reveal_count = final_reveal_count
-    comp.password = password if password else None
     comp.display_theme = display_theme if display_theme in ('dark', 'light') else 'dark'
     db.commit()
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
@@ -208,7 +204,7 @@ async def admin_copia(request: Request, comp_id: int, db: Session = Depends(get_
         blackout_minute=orig.blackout_minute,
         num_qualified=orig.num_qualified,
         final_reveal_count=orig.final_reveal_count,
-        password=orig.password,
+        display_theme=orig.display_theme,
         status="created",
     )
     db.add(new_comp)

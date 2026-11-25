@@ -48,7 +48,6 @@ comp = Competition(
     blackout_minute=60,
     num_qualified=3,
     final_reveal_count=3,
-    password=None,
     status="running",
     started_at=started_at,
     total_paused_seconds=0.0,

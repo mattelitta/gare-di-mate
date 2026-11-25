@@ -172,9 +172,7 @@
       <span class="text-gray-500">Squadre qualificate</span><span>{{ comp.num_qualified }}</span>
       <span class="text-gray-500">Posizioni finale</span><span>{{ comp.final_reveal_count }}</span>
       <span class="text-gray-500">Bonus 1ª consegna</span><span>{{ comp.first_delivery_bonuses|join(', ') }}</span>
-      <span class="text-gray-500">Bonus full</span><span>{{ comp.full_bonuses|join(', ') }}</span>
-      <span class="text-gray-500">Password</span><span>{% if comp.password %}🔒 sì{% else %}no{% endif %}</span>
-    </div>
+      <span class="text-gray-500">Bonus full</span><span>{{ comp.full_bonuses|join(', ') }}</span>    </div>
   </div>
 
 </div>

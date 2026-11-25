@@ -46,11 +46,17 @@ Il server sarà accessibile su:
 | Client | URL | Accesso |
 |---|---|---|
 | Admin | `http://localhost:8000/admin/` | Solo dal dispositivo host |
-| Inserimento | `http://<ip-host>:8000/inserimento/` | Tutta la LAN |
-| Regia | `http://<ip-host>:8000/regia/` | Tutta la LAN |
-| Display | `http://<ip-host>:8000/display/` | Tutta la LAN |
+| Inserimento | `http://<ip-host>:8000/inserimento/` | Host + LAN con password di accesso |
+| Regia | `http://localhost:8000/regia/` | Solo dal dispositivo host |
+| Display | `http://<ip-host>:8000/display/` | Host + LAN con password di accesso |
 
-Inserimento, Regia e Display supportano una password opzionale per gara (configurabile dall'Admin).
+### Accesso dagli altri dispositivi
+
+La home Admin mostra l'indirizzo a cui collegarsi e permette di impostare la **password di accesso**.
+Ogni dispositivo diverso dall'host deve inserirla una volta (resta valida 30 giorni nel browser)
+e può poi usare solo **Inserimento** e **Display** (Admin e Regia restano sul dispositivo host).
+Finché la password non è impostata, gli altri dispositivi non possono accedere.
+Cambiandola, tutti i dispositivi collegati dovranno rifare l'accesso.
 
 ## Flusso di una gara
 
@@ -80,7 +86,7 @@ Inserimento, Regia e Display supportano una password opzionale per gara (configu
 | `minuto_oscuramento` | Dopo questo minuto la classifica è nascosta al pubblico (`≤ durata`) |
 | `squadre_qualificate` | Squadre che si qualificano (linea separatrice in classifica) |
 | `posizioni_finale` | Posizioni rivelate una alla volta nella classifica finale |
-| `password` | Opzionale — protegge Inserimento, Regia e Display |
+| `tema_display` | Chiaro (default, adatto alla proiezione) o scuro |
 
 ## Display — viste disponibili
 
@@ -99,7 +105,8 @@ La **scala del testo** di ogni display (1–5) è regolabile dalla Regia in temp
 
 ```
 gare-di-mate/
-├── main.py              # Applicazione FastAPI, broadcast loop cache
+├── main.py              # Applicazione FastAPI, controllo accesso, broadcast loop cache
+├── auth.py              # Password di accesso per i dispositivi in rete
 ├── database.py          # Setup SQLite / SQLAlchemy, eager loading, migrazioni
 ├── models.py            # Modelli dati (Competition, Team, Problem, ...)
 ├── engine.py            # Motore di calcolo punteggi (O(S), nessun punteggio salvato)

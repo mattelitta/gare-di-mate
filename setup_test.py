@@ -26,7 +26,6 @@ comp = Competition(
     blackout_minute=7,
     num_qualified=2,
     final_reveal_count=3,
-    password=None,
     status="created",
 )
 db.add(comp)
