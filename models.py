@@ -41,6 +41,9 @@ class Competition(Base):
     total_paused_seconds: Mapped[float] = mapped_column(Float, default=0.0)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # Display
+    display_theme: Mapped[str] = mapped_column(String(10), default='dark')  # dark|light
+
     # Final ranking reveal state
     revealed_positions: Mapped[int] = mapped_column(Integer, default=0)
     final_locked: Mapped[bool] = mapped_column(Boolean, default=False)  # True when insertions closed

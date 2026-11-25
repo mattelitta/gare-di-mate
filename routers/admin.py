@@ -52,6 +52,7 @@ async def admin_crea(
     num_qualified: int = Form(0),
     final_reveal_count: int = Form(3),
     password: str = Form(""),
+    display_theme: str = Form("dark"),
     db: Session = Depends(get_db),
 ):
     require_localhost(request)
@@ -80,6 +81,7 @@ async def admin_crea(
         num_qualified=num_qualified,
         final_reveal_count=final_reveal_count,
         password=password if password else None,
+        display_theme=display_theme if display_theme in ('dark', 'light') else 'dark',
         status="created",
     )
     db.add(comp)
@@ -126,6 +128,7 @@ async def admin_modifica(
     num_qualified: int = Form(0),
     final_reveal_count: int = Form(3),
     password: str = Form(""),
+    display_theme: str = Form("dark"),
     db: Session = Depends(get_db),
 ):
     require_localhost(request)
@@ -155,6 +158,7 @@ async def admin_modifica(
     comp.num_qualified = num_qualified
     comp.final_reveal_count = final_reveal_count
     comp.password = password if password else None
+    comp.display_theme = display_theme if display_theme in ('dark', 'light') else 'dark'
     db.commit()
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 

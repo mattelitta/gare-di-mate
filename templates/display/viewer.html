@@ -6,13 +6,51 @@
   <title>{{ disp.name }} — {{ comp.name }}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { background: #0f172a; color: #f1f5f9; font-family: sans-serif; }
+    :root {
+      --c-bg: #0f172a; --c-fg: #f1f5f9;
+      --c-rank: #cbd5e1; --c-sub: #64748b; --c-bar-track: #334155;
+    }
+    body[data-theme="light"] {
+      --c-bg: #f8fafc; --c-fg: #1e293b;
+      --c-rank: #475569; --c-sub: #94a3b8; --c-bar-track: #e2e8f0;
+    }
+    body { background: var(--c-bg); color: var(--c-fg); font-family: sans-serif; }
     .bar-fill { transition: width 0.8s ease; }
     @keyframes fadeSlideIn {
       from { opacity: 0; transform: translateY(-12px); }
       to   { opacity: 1; transform: translateY(0); }
     }
     .reveal-anim { animation: fadeSlideIn 0.5s ease both; }
+    /* Tema chiaro */
+    body[data-theme="light"] header { background: #f1f5f9 !important; border-color: #cbd5e1 !important; }
+    body[data-theme="light"] .bg-slate-900 { background: #ffffff !important; }
+    body[data-theme="light"] .bg-slate-800 { background: #f8fafc !important; }
+    body[data-theme="light"] .bg-slate-700 { background: #f1f5f9 !important; }
+    body[data-theme="light"] .bg-slate-600 { background: #e2e8f0 !important; }
+    body[data-theme="light"] .text-white    { color: #0f172a !important; }
+    body[data-theme="light"] .text-slate-100 { color: #1e293b !important; }
+    body[data-theme="light"] .text-slate-200 { color: #1e293b !important; }
+    body[data-theme="light"] .text-slate-300 { color: #334155 !important; }
+    body[data-theme="light"] .text-slate-400 { color: #475569 !important; }
+    body[data-theme="light"] .text-slate-500 { color: #64748b !important; }
+    body[data-theme="light"] .border-slate-700 { border-color: #cbd5e1 !important; }
+    body[data-theme="light"] .border-slate-600 { border-color: #cbd5e1 !important; }
+    body[data-theme="light"] .bg-red-900   { background: #fee2e2 !important; }
+    body[data-theme="light"] .bg-red-800   { background: #fecaca !important; }
+    body[data-theme="light"] .bg-green-900 { background: #dcfce7 !important; }
+    body[data-theme="light"] .bg-green-800 { background: #bbf7d0 !important; }
+    body[data-theme="light"] .bg-yellow-800 { background: #fef9c3 !important; }
+    body[data-theme="light"] .text-red-200   { color: #b91c1c !important; }
+    body[data-theme="light"] .text-red-300   { color: #b91c1c !important; }
+    body[data-theme="light"] .text-red-400   { color: #b91c1c !important; }
+    body[data-theme="light"] .text-green-300 { color: #166534 !important; }
+    body[data-theme="light"] .text-yellow-200 { color: #854d0e !important; }
+    body[data-theme="light"] .text-yellow-300 { color: #a16207 !important; }
+    body[data-theme="light"] .text-yellow-400 { color: #854d0e !important; }
+    body[data-theme="light"] .text-orange-300 { color: #c2410c !important; }
+    body[data-theme="light"] .text-orange-400 { color: #c2410c !important; }
+    body[data-theme="light"] table { border-collapse: collapse; }
+    body[data-theme="light"] td, body[data-theme="light"] th { border: 1px solid #cbd5e1; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -56,6 +94,7 @@ async function fetchState() {
     const r = await fetch(API_URL);
     if (!r.ok) return;
     state = await r.json();
+    document.body.dataset.theme = state.display_theme || 'dark';
     updateHeader();
     if (state.view !== lastView) {
       lastView = state.view;
@@ -118,6 +157,15 @@ const SCALES = {
 };
 function sc() { return SCALES[state && state.text_scale ? state.text_scale : 3]; }
 
+// --- Helper: titolo inline (stessa struttura flex dei bar, nessuna riga extra) ---
+function rigaTitolo(text) {
+  const s = sc();
+  return `<div style="display:flex;align-items:center;gap:${s.gap};padding-bottom:${s.gap}">
+    <span style="width:${s.rankW};flex-shrink:0"></span>
+    <span style="font-size:${s.titleFs};font-weight:bold" class="text-slate-200">${text}</span>
+  </div>`;
+}
+
 // --- Helper: riga compatta con punteggio a sinistra e barra a destra ---
 function rigaBarra({ label, sublabel, rank, barColor, pct, value, valueColor, separator }) {
   const s = sc();
@@ -129,13 +177,13 @@ function rigaBarra({ label, sublabel, rank, barColor, pct, value, valueColor, se
         <div style="flex:1;border-top:4px solid #ef4444;opacity:0.8"></div>
       </div>` : ''}
     <div style="${rowStyle}">
-      <span style="width:${s.rankW};flex-shrink:0;text-align:right;font-family:monospace;font-size:${s.rankFs};font-weight:bold;color:#cbd5e1">${rank}</span>
+      <span style="width:${s.rankW};flex-shrink:0;text-align:right;font-family:monospace;font-size:${s.rankFs};font-weight:bold;color:var(--c-rank)">${rank}</span>
       <div style="width:${s.nameW};flex-shrink:0;line-height:1.2">
         <span style="font-weight:600;font-size:${s.nameFs}" class="${label.color}">${label.text}</span>
-        <span style="color:#64748b;font-size:${s.subFs};margin-left:0.25rem">${sublabel}</span>
+        <span style="color:var(--c-sub);font-size:${s.subFs};margin-left:0.25rem">${sublabel}</span>
       </div>
       <span style="width:${s.scoreW};flex-shrink:0;text-align:right;font-family:monospace;font-weight:bold;font-size:${s.rankFs}" class="${valueColor}">${value}</span>
-      <div style="flex:1;border-radius:0.25rem;overflow:hidden;background:#334155;height:${s.barH}">
+      <div style="flex:1;border-radius:0.25rem;overflow:hidden;background:var(--c-bar-track);height:${s.barH}">
         <div class="${barColor} bar-fill" style="width:${pct}%;height:100%;border-radius:0.25rem"></div>
       </div>
     </div>`;
@@ -159,8 +207,8 @@ function renderRanking() {
   const nq = state.num_qualified;
   const s = sc();
   let html = `<div class="h-full overflow-y-auto px-4 py-3">
-    <h2 style="font-size:${s.titleFs}" class="font-bold mb-2 text-slate-200">Classifica</h2>
     <div style="display:flex;flex-direction:column;gap:${s.gap}">`;
+  html += rigaTitolo('Classifica');
   teams.forEach((t, i) => {
     const isGuest = t.is_guest;
     const pct = Math.max(2, (t.total / maxScore) * 100);
@@ -187,8 +235,8 @@ function renderTeamList() {
   const maxScore = Math.max(...teams.map(t => t.total), 1);
   const s = sc();
   let html = `<div class="h-full overflow-y-auto px-4 py-3">
-    <h2 style="font-size:${s.titleFs}" class="font-bold mb-2 text-slate-200">Elenco squadre</h2>
     <div style="display:flex;flex-direction:column;gap:${s.gap}">`;
+  html += rigaTitolo('Elenco squadre');
   teams.forEach(t => {
     const pct = Math.max(2, (t.total / maxScore) * 100);
     const barColor = t.is_guest ? 'bg-orange-500' : 'bg-blue-500';
@@ -212,8 +260,8 @@ function renderProblemValues() {
   const maxVal = Math.max(...probs.map(p => p.value), 1);
   const s = sc();
   let html = `<div class="h-full overflow-y-auto px-4 py-3">
-    <h2 style="font-size:${s.titleFs}" class="font-bold mb-2 text-slate-200">Valori dei problemi</h2>
     <div style="display:flex;flex-direction:column;gap:${s.gap}">`;
+  html += rigaTitolo('Valori dei problemi');
   probs.forEach(p => {
     const pct = Math.max(2, (p.value / maxVal) * 100);
     html += rigaBarra({
@@ -245,12 +293,11 @@ function renderCompStatus() {
   };
 
   let html = `<div class="h-full overflow-auto p-4">
-    <h2 style="font-size:${s.titleFs}" class="font-bold text-slate-200 mb-2">Stato gara</h2>
     <table class="w-full border-collapse">
       <thead>
         <tr class="text-slate-400">
           <th class="text-left pr-3 font-medium sticky left-0 bg-slate-900"
-              style="font-size:${s.nameFs};padding-top:${s.cellPy};padding-bottom:${s.cellPy}">Squadra</th>`;
+              style="font-size:${s.titleFs};padding-top:${s.cellPy};padding-bottom:${s.cellPy}">Stato gara</th>`;
   probs.forEach(p => {
     html += `<th class="text-center font-medium" style="min-width:${s.cellMinW};padding:${s.cellPy} 2px">
       <div style="font-size:${s.nameFs}" class="font-bold text-slate-300">${String(p.number).padStart(2,'0')}</div>
@@ -326,9 +373,10 @@ function renderFinalRanking() {
   const justRevealedIdx = (revealed > lastRevealedPositions) ? revealedFrom : -1;
   lastRevealedPositions = revealed;
 
-  let html = `<div class="h-full overflow-y-auto px-8 py-6">
-    <h2 class="text-3xl font-bold mb-6 text-center text-slate-200">🏆 Classifica Finale</h2>
-    <div class="space-y-3 max-w-3xl mx-auto">`;
+  let html = `<div class="h-full overflow-y-auto px-8 py-4">
+    <div class="max-w-3xl mx-auto">
+    <div class="font-bold text-slate-200 mb-3" style="font-size:${sc().titleFs}">🏆 Classifica Finale</div>
+    <div class="space-y-3">`;
 
   for (let i = 0; i < total; i++) {
     const t = nonGuests[i];
@@ -375,7 +423,7 @@ function renderFinalRanking() {
     });
   }
 
-  html += `</div></div>`;
+  html += `</div></div></div>`;
   return html;
 }
 
