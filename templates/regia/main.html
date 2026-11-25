@@ -68,6 +68,7 @@
           {% elif disp.current_view == 'team_list' %}bg-cyan-100 text-cyan-700
           {% elif disp.current_view == 'problem_values' %}bg-yellow-100 text-yellow-700
           {% elif disp.current_view == 'competition_status' %}bg-green-100 text-green-700
+          {% elif disp.current_view == 'matrix' %}bg-orange-100 text-orange-700
           {% elif disp.current_view == 'final_ranking' %}bg-purple-100 text-purple-700
           {% endif %}">
           {{ disp.current_view|replace('_', ' ') }}
@@ -80,6 +81,7 @@
           'team_list': 'Elenco squadre',
           'problem_values': 'Valori problemi',
           'competition_status': 'Stato gara',
+          'matrix': 'Matrice',
           'final_ranking': 'Classifica finale'
         } %}
         {% for v in views %}

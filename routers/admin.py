@@ -3,7 +3,7 @@ from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
@@ -73,6 +73,16 @@ async def admin_crea_form(request: Request):
     return templates.TemplateResponse("admin/crea.html", {"request": request})
 
 
+def _qualificate(qualificazione: str, num_qualified: str) -> int:
+    """Squadre qualificate: 0 se la gara non è a qualificazione, altrimenti almeno 1."""
+    if not qualificazione:
+        return 0
+    valore = num_qualified.strip()
+    if not valore.isdigit() or int(valore) < 1:
+        raise HTTPException(status_code=400, detail="Gara a qualificazione: indicare quante squadre si qualificano (almeno 1)")
+    return int(valore)
+
+
 def _punteggio_iniziale(valore: str) -> int | None:
     """Campo facoltativo: vuoto = automatico (10 × numero di problemi)."""
     valore = valore.strip()
@@ -99,9 +109,11 @@ async def admin_crea(
     jolly_time_minutes: int = Form(30),
     threshold_minute: int = Form(...),
     blackout_minute: int = Form(...),
-    num_qualified: int = Form(0),
+    qualificazione: str = Form(""),
+    num_qualified: str = Form(""),
     final_reveal_count: int = Form(3),
     display_theme: str = Form("light"),
+    jolly_reveal: str = Form("immediate"),
     db: Session = Depends(get_db),
 ):
     require_localhost(request)
@@ -128,9 +140,10 @@ async def admin_crea(
         jolly_time_minutes=jolly_time_minutes,
         threshold_minute=threshold_minute,
         blackout_minute=blackout_minute,
-        num_qualified=num_qualified,
+        num_qualified=_qualificate(qualificazione, num_qualified),
         final_reveal_count=final_reveal_count,
         display_theme=display_theme if display_theme in ('dark', 'light') else 'dark',
+        jolly_reveal=jolly_reveal if jolly_reveal in ('immediate', 'deadline') else 'immediate',
         status="created",
     )
     db.add(comp)
@@ -175,9 +188,11 @@ async def admin_modifica(
     jolly_time_minutes: int = Form(30),
     threshold_minute: int = Form(...),
     blackout_minute: int = Form(...),
-    num_qualified: int = Form(0),
+    qualificazione: str = Form(""),
+    num_qualified: str = Form(""),
     final_reveal_count: int = Form(3),
     display_theme: str = Form("dark"),
+    jolly_reveal: str = Form("immediate"),
     db: Session = Depends(get_db),
 ):
     require_localhost(request)
@@ -205,9 +220,10 @@ async def admin_modifica(
     comp.jolly_time_minutes = jolly_time_minutes
     comp.threshold_minute = threshold_minute
     comp.blackout_minute = blackout_minute
-    comp.num_qualified = num_qualified
+    comp.num_qualified = _qualificate(qualificazione, num_qualified)
     comp.final_reveal_count = final_reveal_count
     comp.display_theme = display_theme if display_theme in ('dark', 'light') else 'dark'
+    comp.jolly_reveal = jolly_reveal if jolly_reveal in ('immediate', 'deadline') else 'immediate'
     db.commit()
     state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
@@ -248,6 +264,7 @@ async def admin_copia(request: Request, comp_id: int, db: Session = Depends(get_
         num_qualified=orig.num_qualified,
         final_reveal_count=orig.final_reveal_count,
         display_theme=orig.display_theme,
+        jolly_reveal=orig.jolly_reveal,
         status="created",
     )
     db.add(new_comp)
@@ -617,6 +634,26 @@ async def admin_blocco_inserimenti(
     db.commit()
     return _torna_alla_gara(comp_id, esito="Inserimenti bloccati." if comp.insertions_locked
                             else "Inserimenti di nuovo aperti.")
+
+
+@router.get("/gara/{comp_id}/esporta-pdf")
+async def admin_esporta_pdf(request: Request, comp_id: int, db: Session = Depends(get_db)):
+    """PDF con classifica finale, valori dei problemi e stato della gara (gara terminata)."""
+    require_localhost(request)
+    import esporta_pdf
+    comp = load_comp_full(comp_id, db)
+    if not comp:
+        raise HTTPException(status_code=404)
+    if comp.status != "ended" or comp.final_ranking_json is None:
+        return _torna_alla_gara(comp_id, errore="Il PDF si esporta a gara terminata, dopo aver calcolato la classifica finale.")
+    try:
+        contenuto = esporta_pdf.crea_pdf(comp)
+    except esporta_pdf.ClassificaNonAggiornata as e:
+        return _torna_alla_gara(comp_id, errore=str(e))
+    nome = "".join(c if c.isalnum() or c in " -_" else "_" for c in comp.name).strip() or "gara"
+    nome = f"Risultati {nome}{' ' + comp.date if comp.date else ''}.pdf"
+    return Response(contenuto, media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nome)}"})
 
 
 # --- API: current state for JS polling ---

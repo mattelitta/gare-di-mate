@@ -11,10 +11,64 @@
   ⚠️ {{ request.query_params.get('errore') }}
 </div>
 {% endif %}
+{% if request.query_params.get('esito') %}
+<div class="bg-green-100 border border-green-300 text-green-800 rounded-lg px-4 py-3 mb-3 font-medium">
+  ✓ {{ request.query_params.get('esito') }}
+</div>
+{% endif %}
 {% if comp.insertions_locked %}
 <div class="bg-red-50 border border-red-300 text-red-800 rounded-lg px-4 py-3 mb-3">
-  🔒 Gli inserimenti sono bloccati dall'Admin: le consegne non si possono modificare né eliminare.
+  🔒 Gli inserimenti sono bloccati dall'Admin: le consegne non si possono aggiungere, modificare né eliminare.
 </div>
+{% endif %}
+
+{# Solo Admin: consegna dimenticata, con il suo tempo di gara (non oltre il tempo attuale). #}
+{% if request.state.is_local and comp.status != 'created' and not comp.insertions_locked %}
+{% set limite = [comp.duration_minutes * 60, comp.elapsed_seconds()]|min %}
+{% set messaggio = request.query_params.get('esito', '') ~ request.query_params.get('errore', '') %}
+{% set da_qui = 'Consegna aggiunta' in messaggio or 'Consegna non aggiunta' in messaggio %}
+<details class="bg-white rounded-lg shadow mb-3" {% if da_qui %}open{% endif %}>
+  <summary class="px-4 py-2.5 cursor-pointer font-medium text-sm select-none">
+    ➕ Aggiungi una consegna con il suo tempo di gara <span class="text-xs text-gray-400 font-normal ml-1">(solo Admin)</span>
+  </summary>
+  <form method="post" action="/inserimento/{{ comp.id }}/consegne/aggiungi{% if query %}?{{ query }}{% endif %}"
+        class="px-4 pb-4 pt-1 flex flex-wrap items-end gap-3">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Squadra</label>
+      <select name="team_id" required class="border rounded px-2 py-1.5 text-sm">
+        <option value="">—</option>
+        {% for t in teams_sorted %}
+        <option value="{{ t.id }}">{{ "%02d"|format(t.number) }} — {{ t.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Problema</label>
+      <select name="problem_id" required class="border rounded px-2 py-1.5 text-sm">
+        <option value="">—</option>
+        {% for p in problems_sorted %}
+        <option value="{{ p.id }}">{{ "%02d"|format(p.number) }} — {{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Risposta</label>
+      <input name="answer" required inputmode="numeric" maxlength="4" placeholder="0000"
+             class="border rounded px-2 py-1.5 text-sm font-mono w-20 text-center">
+    </div>
+    <div>
+      {# Proposto il tempo attuale; il limite lo controlla il server (a gara in corso cresce). #}
+      <label class="block text-xs font-medium text-gray-500 mb-1">Tempo di gara (non oltre quello attuale)</label>
+      <div class="flex items-center gap-1 text-sm">
+        <input name="minutes" type="number" min="0" value="{{ (limite // 60)|int }}"
+               class="border rounded px-2 py-1.5 font-mono w-16 text-center"> min
+        <input name="seconds" type="number" min="0" max="59" value="{{ (limite % 60)|int }}"
+               class="border rounded px-2 py-1.5 font-mono w-16 text-center ml-1"> s
+      </div>
+    </div>
+    <button class="bg-blue-700 text-white px-4 py-1.5 rounded hover:bg-blue-800 text-sm">Aggiungi consegna</button>
+  </form>
+</details>
 {% endif %}
 
 <form method="get" class="bg-white rounded-lg shadow p-3 mb-3 flex flex-wrap items-end gap-4">
@@ -65,7 +119,7 @@
         <th class="px-4 py-2 text-left">Risposta</th>
         <th class="px-4 py-2 text-left">Esito</th>
         <th class="px-4 py-2 text-left">Tempo gara</th>
-        <th class="px-4 py-2 text-left">Post-gara</th>
+        <th class="px-4 py-2 text-left">Note</th>
         <th class="px-4 py-2 text-left">Azioni</th>
       </tr>
     </thead>
@@ -119,6 +173,11 @@
         </td>
         <td class="px-4 py-2 text-center">
           {% if sub.is_post_game %}<span class="text-orange-500 text-xs font-medium">post</span>{% endif %}
+          {# Solo l'Admin vede quali consegne ha aggiunto lui dallo storico, con il tempo indicato a mano. #}
+          {% if sub.added_by_admin and request.state.is_local %}
+          <span class="inline-block bg-purple-100 text-purple-800 text-xs font-medium px-1.5 py-0.5 rounded whitespace-nowrap"
+                title="Aggiunta dall'Admin dallo storico, con il tempo di gara indicato a mano">aggiunta da Admin</span>
+          {% endif %}
         </td>
         <td class="px-4 py-2">
           {% if comp.insertions_locked %}

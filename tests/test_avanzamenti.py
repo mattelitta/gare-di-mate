@@ -34,7 +34,8 @@ st, _, b = req("/inserimento/1/consegne")
 pos = [b.find("2222"), b.find("Tempo di gara avanzato di"), b.find("1111")]
 check("storico: B, poi l'avanzamento, poi A (più recenti in alto)", -1 not in pos and pos == sorted(pos))
 check("riga avanzamento con durata e 'da → a'", "30 min" in b and re.search(r"00:0\d → 30:0\d", b) is not None)
-check("dal computer server: link 'Modifica in Admin'", "Modifica in Admin" in b and "solo Admin" not in b)
+SOLO_ADMIN = '<span class="text-gray-400">solo Admin</span>'  # la riga dell'avanzamento vista da un remoto
+check("dal computer server: link 'Modifica in Admin'", "Modifica in Admin" in b and SOLO_ADMIN not in b)
 team1 = db("SELECT id FROM teams WHERE competition_id=1 AND number=1")[0][0]
 check("con un filtro attivo gli avanzamenti non compaiono",
       "Tempo di gara avanzato di" not in req(f"/inserimento/1/consegne?squadra={team1}")[2])
@@ -44,7 +45,7 @@ if REMOTE:
     req("/accesso", {"password": "segreta", "next": "/"}, op=r, base=REMOTE)
     st, _, b = req("/inserimento/1/consegne", op=r, base=REMOTE)
     check("da un dispositivo in rete: riga visibile ma 'solo Admin'",
-          "Tempo di gara avanzato di" in b and "solo Admin" in b and "Modifica in Admin" not in b)
+          "Tempo di gara avanzato di" in b and SOLO_ADMIN in b and "Modifica in Admin" not in b)
 else:
     skip("vista da un dispositivo in rete (nessun indirizzo secondario)")
 

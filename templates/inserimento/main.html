@@ -375,7 +375,7 @@ function consegna() {
                      (n === 1 ? ' squadra che non l\'ha scelto?' : ' squadre che non l\'hanno scelto?'), 'Assegna')
         .then(ok => { if (ok) e.target.submit(); });
     },
-    inviaJolly(e) {
+    async inviaJolly(e) {
       if (!this.puoInviare) return;
       const errore = verifica(this.jSquadra, this.jProblema);
       this.campoJolly = errore ? errore[0] : '';
@@ -383,6 +383,22 @@ function consegna() {
       if (errore) {
         this.$refs['j_' + errore[0]].select();
         return;
+      }
+      // Conferma solo se si sostituisce un jolly già registrato (stato appena riletto dal server,
+      // nel caso un altro inseritore l'abbia appena inserito).
+      await this.aggiorna();
+      const n = parseInt(this.jSquadra), p = parseInt(this.jProblema);
+      const attuale = this.jolly[n];
+      if (attuale !== undefined && attuale !== p) {
+        const nome = (SQUADRE_ELENCO.find(t => t.n === n) || {}).nome || '';
+        const ok = await chiediConferma(
+          'Attenzione: la squadra ' + this.due(n) + ' ' + nome + ' ha già il jolly sul problema ' +
+          this.due(attuale) + '.\n\nSostituirlo con il problema ' + this.due(p) + '?',
+          'Sostituisci con il ' + this.due(p));
+        if (!ok) {
+          this.$refs.j_problema.select();
+          return;
+        }
       }
       e.target.submit();
     },

@@ -91,11 +91,15 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
     blackout_active = comp.blackout_active()
 
     # Controlla cache — se presente evita di ricaricare tutto dal DB
-    cached = state_cache.get(comp_id)
+    # Con i jolly nascosti fino alla chiusura, i display li ignorano del tutto (anche il raddoppio
+    # dei punti, che altrimenti li rivelerebbe).
+    jolly_public = comp.jolly_public()
+    variant = "full" if jolly_public else "public"
+    cached = state_cache.get(comp_id, variant)
     if cached is None:
         comp_full = load_comp_full(comp_id, db)
-        prob_states, team_scores = compute_state(comp_full)
-        state_cache.set(comp_id, (prob_states, team_scores))
+        prob_states, team_scores = compute_state(comp_full, include_jolly=jolly_public)
+        state_cache.set(comp_id, (prob_states, team_scores), variant)
     else:
         prob_states, team_scores = cached
 
@@ -143,6 +147,7 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
         "duration_seconds": comp.duration_minutes * 60,
         "blackout_active": blackout_active,
         "jolly_time_seconds": comp.jolly_time_minutes * 60,
+        "jolly_public": jolly_public,
         "n": comp.n,
         "num_qualified": comp.num_qualified,
         "revealed_positions": comp.revealed_positions,

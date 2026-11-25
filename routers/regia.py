@@ -12,7 +12,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 formato.registra(templates)
 
-VIEWS = ["test", "ranking", "team_list", "problem_values", "competition_status", "final_ranking"]
+VIEWS = ["test", "ranking", "team_list", "problem_values", "competition_status", "matrix", "final_ranking"]
 
 
 @router.get("/", response_class=HTMLResponse)

@@ -25,6 +25,9 @@ class Competition(Base):
     # Timing parameters (in minutes)
     duration_minutes: Mapped[int] = mapped_column(Integer, default=90)
     jolly_time_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    # Quando i jolly diventano pubblici nei display: 'immediate' (appena inseriti) o 'deadline'
+    # (tutti insieme alla chiusura dei jolly; fino ad allora i display contano i punti senza jolly).
+    jolly_reveal: Mapped[str] = mapped_column(String(10), default='immediate', server_default='immediate')
     threshold_minute: Mapped[int] = mapped_column(Integer)  # values stop growing after this many minutes from start
     blackout_minute: Mapped[int] = mapped_column(Integer)   # ranking hidden after this many minutes from start
     # Oscuramento impostato a mano dall'admin (None = automatico) e tempo di gara in cui è stato impostato.
@@ -115,6 +118,11 @@ class Competition(Base):
     def elapsed_minutes(self) -> float:
         return self.elapsed_seconds() / 60.0
 
+    def jolly_public(self) -> bool:
+        """I jolly (e il loro raddoppio dei punti) sono visibili nei display?"""
+        return (self.jolly_reveal != "deadline" or self.status == "ended"
+                or self.elapsed_seconds() >= self.jolly_time_minutes * 60)
+
     def blackout_auto(self) -> bool:
         """Oscuramento automatico: dal minuto di oscuramento e sempre a gara terminata."""
         return self.status == "ended" or (
@@ -180,6 +188,8 @@ class Submission(Base):
     game_seconds: Mapped[float] = mapped_column(Float, default=0.0)
     submitted_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
     device_id: Mapped[str | None] = mapped_column(String(64), nullable=True)  # cookie del dispositivo che l'ha inserita
+    # Aggiunta dall'Admin dallo storico con un tempo indicato a mano (lo vede solo l'Admin).
+    added_by_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default='0')
 
     competition: Mapped["Competition"] = relationship("Competition", back_populates="submissions")
     team: Mapped["Team"] = relationship("Team", back_populates="submissions")
@@ -244,7 +254,7 @@ class Display(Base):
     name: Mapped[str] = mapped_column(String(100))
     ip_address: Mapped[str] = mapped_column(String(50), default="")
     current_view: Mapped[str] = mapped_column(String(50), default="test")
-    # test|ranking|team_list|problem_values|competition_status|final_ranking
+    # test|ranking|team_list|problem_values|competition_status|matrix|final_ranking
     last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     text_scale: Mapped[int] = mapped_column(Integer, default=3)  # 1=minimo … 5=massimo
 

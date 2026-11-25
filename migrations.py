@@ -71,6 +71,8 @@ MIGRATIONS = [
     _final_columns,                                                                        # 6
     _blackout_columns,                                                                     # 7
     lambda c: _add_column(c, "competitions", "starting_score", "INTEGER"),                 # 8
+    lambda c: _add_column(c, "competitions", "jolly_reveal", "VARCHAR(10) DEFAULT 'immediate'"),  # 9
+    lambda c: _add_column(c, "submissions", "added_by_admin", "BOOLEAN DEFAULT 0"),          # 10
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
 

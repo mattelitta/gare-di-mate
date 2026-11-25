@@ -67,6 +67,15 @@
         <label class="block text-sm font-medium mb-1">Tempo jolly</label>
         <input name="jolly_time_minutes" type="number" value="30" required class="w-full border rounded px-3 py-2">
       </div>
+      <div class="col-span-2">
+        <label class="block text-sm font-medium mb-1">Jolly nei display</label>
+        <select name="jolly_reveal" class="w-full border rounded px-3 py-2">
+          <option value="immediate" selected>Visibili appena inseriti (default)</option>
+          <option value="deadline">Tutti insieme alla chiusura dei jolly</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Con la seconda scelta, fino alla chiusura i display contano i punti
+          senza il raddoppio del jolly, che altrimenti lo rivelerebbe. Admin e inseritori vedono sempre tutto.</p>
+      </div>
       <div>
         <label class="block text-sm font-medium mb-1">Minuto soglia (valori si bloccano)</label>
         <input name="threshold_minute" type="number" value="70" required class="w-full border rounded px-3 py-2">
@@ -81,9 +90,17 @@
     <h2 class="font-semibold text-gray-700">Classifica</h2>
 
     <div class="grid grid-cols-2 gap-4">
-      <div>
-        <label class="block text-sm font-medium mb-1">Squadre qualificate</label>
-        <input name="num_qualified" type="number" value="0" min="0" required class="w-full border rounded px-3 py-2">
+      <div x-data="{ qualificazione: false }">
+        <label class="flex items-center gap-2 text-sm font-medium mb-2 cursor-pointer select-none">
+          <input type="checkbox" value="1" name="qualificazione" x-model="qualificazione" class="w-4 h-4">
+          Gara a qualificazione
+        </label>
+        <div x-show="qualificazione" x-cloak>
+          <label class="block text-sm font-medium mb-1">Quante squadre si qualificano</label>
+          <input name="num_qualified" type="number" min="1" value="" placeholder="es. 3"
+                 :disabled="!qualificazione" :required="qualificazione" class="w-full border rounded px-3 py-2">
+        </div>
+        <p x-show="!qualificazione" class="text-xs text-gray-500">Nessuna linea delle qualificate in classifica.</p>
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Posizioni da rivelare (classifica finale)</label>

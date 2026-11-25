@@ -9,6 +9,12 @@
   <style>
     [x-cloak] { display: none !important; }
   </style>
+  {# Modalità scura locale di questo browser (i display non usano questa pagina base).
+     Applicata qui, prima del disegno della pagina, per evitare il lampo bianco. #}
+  <link rel="stylesheet" href="/static/css/scuro.css">
+  <script>
+    try { if (localStorage.getItem('gdm-tema') === 'scuro') document.documentElement.classList.add('scuro'); } catch (e) {}
+  </script>
 </head>
 <body class="bg-gray-100 min-h-screen text-gray-900">
   <nav class="bg-blue-700 text-white px-6 py-3 flex items-center gap-6 shadow">
@@ -22,9 +28,15 @@
     {% else %}
     <a href="/inserimento/" class="hover:underline text-sm">Inserimento</a>
     <a href="/display/" class="hover:underline text-sm">Display</a>
-    <a href="/esci" class="hover:underline text-sm ml-auto">Esci</a>
     {% endif %}
     {% endblock %}
+    <div class="ml-auto flex items-center gap-6">
+      <button type="button" id="tasto-tema" onclick="cambiaTema()" title="Cambia tema solo su questo dispositivo"
+              class="text-sm hover:underline whitespace-nowrap"></button>
+      {% if not request.state.is_local and request.url.path != '/accesso' %}
+      <a href="/esci" class="hover:underline text-sm">Esci</a>
+      {% endif %}
+    </div>
   </nav>
   <main class="p-6 max-w-6xl mx-auto">
     {% block content %}{% endblock %}
@@ -48,6 +60,23 @@
     </div>
   </dialog>
   <script>
+  function etichettaTema() {
+    const scuro = document.documentElement.classList.contains('scuro');
+    document.getElementById('tasto-tema').textContent = scuro ? '☀️ Chiaro' : '🌙 Scuro';
+  }
+  function cambiaTema() {
+    const scuro = document.documentElement.classList.toggle('scuro');
+    try { localStorage.setItem('gdm-tema', scuro ? 'scuro' : 'chiaro'); } catch (e) {}
+    etichettaTema();
+  }
+  // Le altre schede aperte sullo stesso browser si allineano subito.
+  window.addEventListener('storage', e => {
+    if (e.key !== 'gdm-tema') return;
+    document.documentElement.classList.toggle('scuro', e.newValue === 'scuro');
+    etichettaTema();
+  });
+  etichettaTema();
+
   let rispostaConferma = null;
   function chiediConferma(messaggio, etichetta) {
     const d = document.getElementById('dialogo-conferma');

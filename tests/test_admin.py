@@ -103,6 +103,33 @@ ins = req("/inserimento/1")[2]
 check("consegna: tasto Conferma selezionato all'apertura",
       'x-ref="conferma"' in ins and "this.$refs.conferma.focus()" in ins)
 
+# --- modalità scura locale: nelle pagine di lavoro sì, nei display no ---
+for pagina in ("/admin/", "/admin/gara/1", "/inserimento/1", "/inserimento/1/consegne", "/regia/1"):
+    b = req(pagina)[2]
+    check(f"{pagina}: modalità scura disponibile (tasto e tema letto dal browser)",
+          'href="/static/css/scuro.css"' in b and 'id="tasto-tema"' in b and "localStorage.getItem('gdm-tema')" in b)
+req("/regia/1/display/aggiungi", {"name": "Tema"})
+disp = db("SELECT id FROM displays WHERE competition_id=1 ORDER BY id DESC")[0][0]
+viewer = req(f"/display/1/schermo/{disp}")[2]
+check("schermo del display: nessuna modalità scura delle pagine di lavoro",
+      viewer and "scuro.css" not in viewer and "gdm-tema" not in viewer)
+# --- vista "Matrice" ---
+check("regia: tasto della vista Matrice", 'value="matrix"' in req("/regia/1")[2] and ">\n          Matrice\n" in req("/regia/1")[2])
+req(f"/regia/1/display/{disp}/vista", {"view": "matrix"})
+check("vista Matrice impostata sul display", db(f"SELECT current_view FROM displays WHERE id={disp}")[0][0] == "matrix")
+matrice = viewer.split("function renderMatrix()")[1].split("// --- FINAL RANKING")[0] if "function renderMatrix()" in viewer else ""
+check("matrice: nascosta con l'oscuramento, solo numeri, colori e jolly (niente nomi, valori, punti)",
+      "if (state.blackout_active) return schermataOscurata();" in matrice
+      and "t.name" not in matrice and "p.value" not in matrice and "problem_contributions" not in matrice
+      and "text = errors" in matrice
+      and "const isJolly = t.jolly_problem_id === p.id;" in matrice and "ring-2 ring-yellow-400" in matrice)
+check("matrice: disegnata sia al cambio di vista sia negli aggiornamenti",
+      viewer.count("case 'matrix':") == 2)
+
+css = req("/static/css/scuro.css")[2]
+check("foglio scuro: sfondo pagina scuro anche con la classe bg-gray-100 del body",
+      "html.scuro body.bg-gray-100" in css and "color-scheme: dark" in css)
+
 # --- host riconosciuto anche dal suo IP di rete ---
 for base in (BASE, f"http://{lan_ip()}:{PORT}"):
     st, _, home = req("/", base=base)

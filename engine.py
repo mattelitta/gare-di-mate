@@ -54,11 +54,13 @@ class TeamScore:
 def compute_state(
     comp: Competition,
     at_seconds: float | None = None,
+    include_jolly: bool = True,
 ) -> tuple[dict[int, ProblemState], dict[int, TeamScore]]:
     """
     Calcola lo stato completo della gara all'istante at_seconds.
     Se at_seconds è None, usa il tempo elapsed corrente.
     Richiede che comp abbia già tutte le relazioni caricate (eager loading).
+    Con include_jolly=False i jolly sono ignorati (display con jolly nascosti fino alla chiusura).
     """
     if at_seconds is None:
         at_seconds = comp.elapsed_seconds()
@@ -71,7 +73,7 @@ def compute_state(
 
     # Jolly: ultimo inserimento per squadra vince
     jolly_map: dict[int, int] = {}
-    for jc in sorted(comp.jolly_choices, key=lambda x: x.submitted_at):
+    for jc in sorted(comp.jolly_choices if include_jolly else [], key=lambda x: x.submitted_at):
         jolly_map[jc.team_id] = jc.problem_id
 
     # Consegne ordinate per (game_seconds, submitted_at) — garantisce ordine corretto

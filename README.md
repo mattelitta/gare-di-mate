@@ -5,6 +5,9 @@ Software di gestione per gare a squadre di matematica. Permette di amministrare 
 ## Funzionalità
 
 - **Admin** — creazione e gestione gare; squadre e problemi (nella pagina "Modifica parametri", per non toccarli per sbaglio durante la gara); bonus o penalizzazioni in punti; controllo stato (avvia / pausa / riprendi / termina) e avanzamento manuale del tempo di gara; accessibile solo dal dispositivo host
+- **PDF dei risultati** — a gara terminata e classifica calcolata, l'Admin scarica un PDF con la classifica finale e i valori dei problemi come grafici a barre e lo stato della gara
+- **Consegne con il tempo** — dallo storico consegne l'Admin può aggiungere una consegna dimenticata indicandone il tempo di gara (non oltre quello attuale); i punteggi si ricalcolano come se fosse stata inserita in quel momento; nello storico dell'Admin (e solo lì) queste consegne sono segnate "aggiunta da Admin"
+- **Modalità scura** per le pagine di lavoro (admin, inserimento, regia): tasto in alto a destra, vale solo per il browser su cui si attiva e non tocca i display
 - **Ripresa dopo un crash** — se il programma si chiude con una gara in corso, alla riapertura la gara riprende dal minuto raggiunto e un avviso propone di far avanzare il tempo della durata dell'interruzione (modificabile o ignorabile)
 - **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara (la pagina si può aprire già prima della partenza: l'invio si attiva da solo quando la gara inizia); stato della gara e tempi alla fine e alla chiusura dei jolly sempre visibili; squadre senza jolly evidenziate in giallo negli ultimi 2 minuti e in rosso dopo la scadenza, con un tasto per assegnare loro il jolly sul problema 01; errori di inserimento segnalati nella pagina; storico consegne (più recenti in alto) modificabile e filtrabile per squadra, problema e dispositivo che le ha inserite, con gli avanzamenti del tempo al loro posto; ottimizzato per uso rapido da tablet (il cursore passa da solo al campo successivo: es. `04` `03` Invio)
 - **Regia** — controllo dei display in sala (scelta della vista, scala del testo), rivelazione progressiva della classifica finale
@@ -15,7 +18,7 @@ Software di gestione per gare a squadre di matematica. Permette di amministrare 
 Solo per l'installazione da sorgente (l'installer Windows include già tutto):
 
 - Python 3.11+ (con Python 3.14 serve SQLAlchemy 2.1, già indicato in `requirements.txt`)
-- Dipendenze in `requirements.txt`: `fastapi`, `uvicorn[standard]`, `sqlalchemy`, `jinja2`, `python-multipart`, `itsdangerous`
+- Dipendenze in `requirements.txt`: `fastapi`, `uvicorn[standard]`, `sqlalchemy`, `jinja2`, `python-multipart`, `itsdangerous`, `fpdf2` (esportazione PDF)
 
 ## Installazione su Windows (consigliata)
 
@@ -128,9 +131,10 @@ Cambiandola, tutti i dispositivi collegati dovranno rifare l'accesso.
 | `bonus_full` | Lista di bonus per le prime squadre a completare tutti i problemi |
 | `durata_minuti` | Durata della gara |
 | `tempo_jolly` | Minuti disponibili per scegliere il jolly (default 30) |
+| `jolly nei display` | Visibili appena inseriti (default) o tutti insieme alla chiusura dei jolly; nel secondo caso fino ad allora i display contano i punti senza raddoppio |
 | `minuto_soglia` | Dopo questo minuto i valori si congelano (`≤ durata`) |
 | `minuto_oscuramento` | Dopo questo minuto la classifica è nascosta al pubblico (`≤ durata`) |
-| `squadre_qualificate` | Squadre che si qualificano (linea separatrice in classifica) |
+| `gara a qualificazione` | Interruttore: se attivo si indica quante squadre si qualificano (linea separatrice in classifica); se spento nessuna linea |
 | `posizioni_finale` | Posizioni rivelate una alla volta nella classifica finale |
 | `tema_display` | Chiaro (default, adatto alla proiezione) o scuro |
 
@@ -143,6 +147,7 @@ Cambiandola, tutti i dispositivi collegati dovranno rifare l'accesso.
 | `team_list` | Elenco squadre per numero |
 | `problem_values` | Valori correnti dei problemi con barre |
 | `competition_status` | Griglia squadre × problemi con contributi e jolly |
+| `matrix` | "Matrice": la stessa griglia con soli numeri di squadra e problema; casella verde se risolto, rossa con il numero di errori se solo sbagliato, bordo giallo sul jolly (visibile come nello stato gara) |
 | `final_ranking` | Rivelazione progressiva gestita dalla Regia |
 
 La **scala del testo** di ogni display (1–5) è regolabile dalla Regia in tempo reale: scala 1 per 30+ squadre, scala 5 per 5–10 squadre.

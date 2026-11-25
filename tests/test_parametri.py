@@ -66,6 +66,29 @@ req(f"/admin/gara/{nuova}/squadre/aggiungi", {"number": "10", "name": "Salto"})
 check("prosegue dal numero più alto (10 → 11)", prossimi(nuova)[0] == 11)
 check("dopo un'aggiunta il cursore va sul nome", "nuova-squadra-nome" in req(f"/admin/gara/{nuova}/modifica")[2])
 
+# --- gara a qualificazione (interruttore + numero di qualificate) ---
+check("creazione: interruttore spento di default, numero nascosto",
+      re.search(r'x-data="\{ qualificazione: false \}"', req("/admin/crea")[2]) is not None)
+st, h, _ = crea(qualificazione="1", num_qualified="3")
+q = int(re.search(r"/gara/(\d+)/", h["location"]).group(1))
+check("a qualificazione con 3: salvato 3", db(f"SELECT num_qualified FROM competitions WHERE id={q}")[0][0] == 3)
+m = req(f"/admin/gara/{q}/modifica")[2]
+check("modifica: interruttore acceso e numero 3",
+      'x-data="{ qualificazione: true }"' in m and re.search(r'name="num_qualified"[^>]*value="3"', m) is not None)
+check("pagina gara: 'si qualificano le prime 3'", "si qualificano le prime 3" in req(f"/admin/gara/{q}")[2])
+st, h, _ = crea(num_qualified="5")
+nq = int(re.search(r"/gara/(\d+)/", h["location"]).group(1))
+check("senza la spunta il numero è ignorato: 0", db(f"SELECT num_qualified FROM competitions WHERE id={nq}")[0][0] == 0)
+check("pagina gara: 'Qualificazione no'", re.search(r"Qualificazione</span><span>no<", req(f"/admin/gara/{nq}")[2]) is not None)
+for valore in ("", "0", "x"):
+    st, _, b = crea(qualificazione="1", num_qualified=valore)
+    check(f"a qualificazione con '{valore}': rifiutata", st == 400 and "almeno 1" in b)
+campi_q = dict(re.findall(r'name="(\w+)"[^>]*value="([^"]*)"', m))
+campi_q.update({"display_theme": "light"})
+campi_q.pop("num_qualified", None)
+req(f"/admin/gara/{q}/modifica", campi_q)
+check("modifica togliendo la spunta: torna 0", db(f"SELECT num_qualified FROM competitions WHERE id={q}")[0][0] == 0)
+
 # --- data facoltativa ---
 st, h, _ = req("/admin/crea", {"name": "Senza data", "threshold_minute": "60", "blackout_minute": "80"})
 sd = int(re.search(r"/gara/(\d+)/", h["location"]).group(1))

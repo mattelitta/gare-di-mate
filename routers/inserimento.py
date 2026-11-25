@@ -327,7 +327,7 @@ async def inserimento_modifica_form(
 def _filtri(request: Request) -> str:
     """Query string dei filtri dello storico, senza l'eventuale messaggio d'errore.
     Usata anche per lo storico stesso, così l'errore non resta nei link di modifica ed eliminazione."""
-    return urlencode([(k, v) for k, v in request.query_params.multi_items() if k != "errore"])
+    return urlencode([(k, v) for k, v in request.query_params.multi_items() if k not in ("errore", "esito")])
 
 
 @router.post("/{comp_id}/consegne/{sub_id}/modifica")
@@ -364,3 +364,62 @@ async def inserimento_modifica_consegna(
     db.commit()
     state_cache.invalidate(comp_id)
     return RedirectResponse(_consegne_url(comp_id, request), status_code=303)
+
+
+@router.post("/{comp_id}/consegne/aggiungi")
+async def inserimento_aggiungi_consegna(
+    request: Request,
+    comp_id: int,
+    team_id: int = Form(...),
+    problem_id: int = Form(...),
+    answer: str = Form(...),
+    minutes: str = Form(""),
+    seconds: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    """Solo Admin: aggiunge una consegna dimenticata con il suo tempo di gara.
+
+    I punteggi si ricalcolano sempre da capo in ordine di tempo, quindi una consegna inserita nel
+    passato cambia correttamente valori e bonus da quel momento in poi."""
+    if not request.state.is_local:
+        raise HTTPException(status_code=403, detail="Solo l'Admin può aggiungere consegne con il tempo")
+    comp = get_comp_or_404(comp_id, db)
+    team = db.get(Team, team_id)
+    problem = db.get(Problem, problem_id)
+    try:
+        require_started(comp)
+        if not team or team.competition_id != comp_id:
+            raise InputError("La squadra scelta non esiste in questa gara.")
+        if not problem or problem.competition_id != comp_id:
+            raise InputError("Il problema scelto non esiste in questa gara.")
+        answer = _risposta(answer)
+        m, s = minutes.strip() or "0", seconds.strip() or "0"
+        if not (m.isdigit() and s.isdigit()):
+            raise InputError("Il tempo di gara va indicato in minuti e secondi (solo cifre).")
+        if int(s) > 59:
+            raise InputError("I secondi devono essere da 0 a 59.")
+        game_sec = int(m) * 60 + int(s)
+        limite = min(comp.duration_minutes * 60.0, comp.elapsed_seconds())
+        if game_sec > limite:
+            raise InputError(f"Il tempo indicato ({formato.mmss(game_sec)}) è oltre il tempo di gara attuale "
+                             f"({formato.mmss(limite)}).")
+    except InputError as e:
+        return _torna(_consegne_url(comp_id, request), f"Consegna non aggiunta. {e}")
+
+    db.add(Submission(
+        competition_id=comp_id,
+        team_id=team.id,
+        problem_id=problem.id,
+        answer=answer,
+        is_correct=answer == problem.answer,
+        is_post_game=False,
+        game_seconds=float(game_sec),
+        device_id=request.state.device_id,
+        added_by_admin=True,
+    ))
+    db.commit()
+    state_cache.invalidate(comp_id)
+    esito = (f"Consegna aggiunta: squadra {team.number:02d}, problema {problem.number:02d}, "
+             f"risposta {answer} ({'corretta' if answer == problem.answer else 'errata'}) al minuto {formato.mmss(game_sec)}.")
+    url = _consegne_url(comp_id, request)
+    return RedirectResponse(f"{url}{'&' if '?' in url else '?'}esito={quote(esito)}", status_code=303)

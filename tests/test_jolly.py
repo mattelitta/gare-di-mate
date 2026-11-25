@@ -21,6 +21,10 @@ check("stato iniziale: non iniziata, durata e tempo jolly in secondi",
 st, _, b = req("/inserimento/1")
 check("pagina: barra di stato e riquadro squadre senza jolly",
       "etichettaStato()" in b and "scadenzaJolly()" in b and "Squadre senza jolly" in b and "STATO_INIZIALE" in b)
+invio = b.split("async inviaJolly(e)")[1].split("apriConferma(e)")[0] if "async inviaJolly(e)" in b else ""
+check("jolly: conferma solo se si sostituisce un jolly diverso, detto esplicitamente",
+      "attuale !== undefined && attuale !== p" in invio and "ha già il jolly sul problema" in invio
+      and "chiediConferma(" in invio and "await this.aggiorna()" in invio)
 st, h, _ = req("/inserimento/1/jolly-mancanti", {})
 check("assegnazione automatica rifiutata a gara non iniziata", "errore=" in h["location"])
 
