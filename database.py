@@ -30,7 +30,7 @@ def _migrate_db():
     from sqlalchemy import text
     migrations = [
         "ALTER TABLE displays ADD COLUMN text_scale INTEGER DEFAULT 3",
-        "ALTER TABLE competitions ADD COLUMN display_theme VARCHAR DEFAULT 'dark'",
+        "ALTER TABLE competitions ADD COLUMN display_theme VARCHAR DEFAULT 'light'",
     ]
     with engine.connect() as conn:
         for stmt in migrations:

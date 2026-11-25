@@ -42,7 +42,7 @@ class Competition(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     # Display
-    display_theme: Mapped[str] = mapped_column(String(10), default='dark')  # dark|light
+    display_theme: Mapped[str] = mapped_column(String(10), default='light')  # dark|light
 
     # Final ranking reveal state
     revealed_positions: Mapped[int] = mapped_column(Integer, default=0)

@@ -52,7 +52,7 @@ async def admin_crea(
     num_qualified: int = Form(0),
     final_reveal_count: int = Form(3),
     password: str = Form(""),
-    display_theme: str = Form("dark"),
+    display_theme: str = Form("light"),
     db: Session = Depends(get_db),
 ):
     require_localhost(request)
