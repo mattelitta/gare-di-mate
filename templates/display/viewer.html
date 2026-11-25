@@ -300,7 +300,7 @@ function renderCompStatus() {
               style="font-size:${s.titleFs};padding-top:${s.cellPy};padding-bottom:${s.cellPy}">Stato gara</th>`;
   probs.forEach(p => {
     html += `<th class="text-center font-medium" style="min-width:${s.cellMinW};padding:${s.cellPy} 2px">
-      <div style="font-size:${s.nameFs}" class="font-bold text-slate-300">${String(p.number).padStart(2,'0')}</div>
+      <div style="font-size:${s.rankFs}" class="font-bold text-slate-300">${String(p.number).padStart(2,'0')}</div>
       <div style="font-size:${s.rankFs}" class="text-yellow-400 font-mono font-bold">${Math.round(p.value)}</div>
     </th>`;
   });

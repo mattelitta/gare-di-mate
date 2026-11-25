@@ -25,13 +25,13 @@
       <div>
         <label class="block text-sm font-medium mb-1">ID Squadra</label>
         <input name="team_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
-               placeholder="01" autofocus
+               placeholder="01" autofocus oninput="autoAvanza(this)"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">ID Problema</label>
         <input name="problem_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
-               placeholder="01"
+               placeholder="01" oninput="autoAvanza(this)"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <button type="submit"
@@ -69,19 +69,19 @@
       <div>
         <label class="block text-sm font-medium mb-1">ID Squadra</label>
         <input x-model="squadra" name="team_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
-               placeholder="01"
+               placeholder="01" oninput="autoAvanza(this)"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">ID Problema</label>
         <input x-model="problema" name="problem_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
-               placeholder="01"
+               placeholder="01" oninput="autoAvanza(this)"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Risposta</label>
         <input x-model="risposta" name="answer" type="text" inputmode="numeric" maxlength="4" pattern="\d{4}"
-               placeholder="0000"
+               placeholder="0000" oninput="autoAvanza(this)"
                class="w-full border-2 rounded-lg px-4 py-3 text-3xl font-mono text-center tracking-widest focus:border-green-500 outline-none">
       </div>
       <button type="submit"
@@ -166,6 +166,14 @@
 </div>
 
 <script>
+function autoAvanza(el) {
+  if (el.value.length >= el.maxLength) {
+    const inputs = Array.from(el.closest('form').querySelectorAll('input[maxlength]'));
+    const next = inputs[inputs.indexOf(el) + 1];
+    if (next) next.focus();
+  }
+}
+
 const RISPOSTE = {
   {% for prob in problems %}
   {{ prob.number }}: '{{ prob.answer }}',
