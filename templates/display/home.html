@@ -9,7 +9,7 @@
     <div class="flex items-center justify-between">
       <div>
         <span class="font-semibold text-lg">{{ comp.name }}</span>
-        <span class="text-gray-500 text-sm ml-2">{{ comp.date }}</span>
+        {% if comp.date %}<span class="text-gray-500 text-sm ml-2">{{ comp.date }}</span>{% endif %}
       </div>
       <span class="px-2 py-0.5 rounded text-xs font-medium
         {% if comp.status == 'running' %}bg-green-100 text-green-800

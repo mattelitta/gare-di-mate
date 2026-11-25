@@ -102,7 +102,7 @@ Cambiandola, tutti i dispositivi collegati dovranno rifare l'accesso.
 ## Flusso di una gara
 
 1. L'**Admin** crea la gara con i parametri, poi aggiunge squadre e problemi in "Modifica parametri"
-2. L'**Admin** avvia la gara — il timer parte
+2. L'**Admin** preme "Prepara l'avvio…", controlla il riepilogo (squadre, problemi, durata, ora attuale) e preme "Avvia ora" nel momento esatto — il timer parte
 3. La **Regia** assegna le viste ai display e regola la scala del testo; gli **inseritori** possono
    già aprire la pagina di inserimento (anche prima della partenza)
 4. L'**Inserimento** registra jolly (entro il tempo jolly) e soluzioni
@@ -121,6 +121,7 @@ Cambiandola, tutti i dispositivi collegati dovranno rifare l'accesso.
 | Parametro | Descrizione |
 |---|---|
 | `valore_iniziale` | Valore di partenza di ogni problema |
+| `punteggio_iniziale` | Punteggio di partenza delle squadre (facoltativo: se vuoto, 10 × numero di problemi) |
 | `n` | Squadre non-ospiti che devono risolvere per bloccare il `+1/min` |
 | `k` | Max errori per squadra non-ospite che contribuiscono al valore |
 | `bonus_prima_consegna` | Lista di bonus per le prime squadre a risolvere ogni problema |

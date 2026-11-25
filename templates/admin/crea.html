@@ -11,8 +11,8 @@
         <input name="name" required class="w-full border rounded px-3 py-2" placeholder="Gare a Squadre 2025">
       </div>
       <div>
-        <label class="block text-sm font-medium mb-1">Data</label>
-        <input name="date" type="date" required class="w-full border rounded px-3 py-2">
+        <label class="block text-sm font-medium mb-1">Data <span class="text-gray-400 font-normal">(facoltativa)</span></label>
+        <input name="date" type="date" class="w-full border rounded px-3 py-2">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Tema display</label>
@@ -38,6 +38,12 @@
       <div>
         <label class="block text-sm font-medium mb-1">k (errori per valore)</label>
         <input name="k" type="number" value="1" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div class="col-span-3">
+        <label class="block text-sm font-medium mb-1">Punteggio iniziale delle squadre</label>
+        <input name="starting_score" type="number" placeholder="Automatico: 10 × numero di problemi"
+               class="w-full border rounded px-3 py-2">
+        <p class="text-xs text-gray-500 mt-1">Lasciare vuoto per il valore automatico (10 punti per ogni problema).</p>
       </div>
       <div class="col-span-3">
         <label class="block text-sm font-medium mb-1">Bonus prima consegna (virgola separati)</label>

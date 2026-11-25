@@ -60,7 +60,48 @@ check("dopo l'avvio lo stato è running", json.loads(req("/inserimento/1/stato")
 st, _, _ = req("/inserimento/1/soluzione", {"team_number": "01", "problem_number": "01", "answer": "0042"})
 check("soluzione accettata dopo la partenza", st == 303)
 sid = re.findall(r"/consegne/(\d+)/modifica", req("/inserimento/1/consegne")[2])[0]
-check("modifica consegna: nessuna '()' vuota", "()" not in req(f"/inserimento/1/consegne/{sid}/modifica")[2])
+testo = re.sub(r"<[^>]+>", " ", re.sub(r"<script.*?</script>", "", req(f"/inserimento/1/consegne/{sid}/modifica")[2], flags=re.S))
+check("modifica consegna: nessuna '()' vuota nel testo", "()" not in testo)
+
+# --- finestre di conferma: "Annulla" selezionato per le azioni pericolose, "Conferma" per le consegne ---
+import pathlib
+radice = pathlib.Path(__file__).resolve().parent.parent / "templates"
+con_confirm = [str(p.relative_to(radice)) for p in radice.rglob("*.html")
+               if "confirm(" in re.sub(r"\{#.*?#\}", "", p.read_text(encoding="utf-8"), flags=re.S)]
+check("nessun confirm() del browser (seleziona sempre OK)", not con_confirm, ", ".join(con_confirm))
+home = req("/admin/")[2]
+check("finestra di conferma comune: parte su Annulla",
+      'id="dialogo-conferma"' in home and "getElementById('dialogo-conferma-no').focus()" in home)
+g = req("/admin/gara/1")[2]
+check("termina gara chiede conferma (gara in corso)",
+      re.search(r'action="/admin/gara/1/termina"\s+data-conferma="Terminare definitivamente', g) is not None)
+check("elimina gara chiede conferma", 'data-conferma="Eliminare la gara' in home)
+# avvio in due passi: "Prepara l'avvio…" apre il riepilogo, la gara parte solo con "Avvia ora"
+st, h, _ = req("/admin/crea", {"name": "Avvio", "threshold_minute": "60", "blackout_minute": "80"})
+av = re.search(r"/gara/(\d+)/", h["location"]).group(1)
+pagina = req(f"/admin/gara/{av}")[2]
+check("gara vuota: avviso nel riepilogo di avvio", "non ci sono né squadre né problemi" in pagina)
+req(f"/admin/gara/{av}/squadre/aggiungi", {"number": "1", "name": "A"})
+req(f"/admin/gara/{av}/squadre/aggiungi", {"number": "2", "name": "B", "is_guest": "on"})
+req(f"/admin/gara/{av}/problemi/aggiungi", {"number": "1", "name": "P", "answer": "0001"})
+pagina = req(f"/admin/gara/{av}")[2]
+riepilogo = pagina.split('id="dialogo-avvio"')[1].split("</dialog>")[0] if 'id="dialogo-avvio"' in pagina else ""
+check("tasto 'Prepara l'avvio…' che apre il riepilogo (non invia nulla)",
+      "Prepara l'avvio…" in pagina and 'type="button" onclick="apriAvvio()"' in pagina)
+check("riepilogo: squadre (con ospiti), problemi, durata, n e k, ora attuale, nessun avviso",
+      re.search(r"Squadre</span>\s*<span[^>]*>2 <span[^>]*>\(di cui 1 ospite\)", riepilogo) is not None
+      and re.search(r"Problemi</span>\s*<span[^>]*>1<", riepilogo) is not None
+      and "90 min" in riepilogo and "n = 2, k = 1" in riepilogo and 'id="avvio-ora"' in riepilogo and "non ci sono" not in riepilogo)
+check("riepilogo: la gara parte solo con 'Avvia ora', cursore su Annulla",
+      f'action="/admin/gara/{av}/avvia"' in riepilogo and "Avvia ora</button>" in riepilogo
+      and "getElementById('avvio-annulla').focus()" in pagina)
+check("ancora da avviare dopo aver aperto la pagina", db(f"SELECT status FROM competitions WHERE id={av}")[0][0] == "created")
+req(f"/admin/gara/{av}/avvia", {})
+check("dopo l'avvio niente più riepilogo di avvio", 'id="dialogo-avvio"' not in req(f"/admin/gara/{av}")[2])
+
+ins = req("/inserimento/1")[2]
+check("consegna: tasto Conferma selezionato all'apertura",
+      'x-ref="conferma"' in ins and "this.$refs.conferma.focus()" in ins)
 
 # --- host riconosciuto anche dal suo IP di rete ---
 for base in (BASE, f"http://{lan_ip()}:{PORT}"):

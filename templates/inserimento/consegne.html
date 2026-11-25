@@ -128,7 +128,7 @@
             <a href="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica{% if query %}?{{ query }}{% endif %}"
                class="text-blue-600 hover:underline text-xs">Modifica</a>
             <form method="post" action="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/elimina{% if query %}?{{ query }}{% endif %}"
-                  onsubmit="return confirm('Eliminare questa consegna?')">
+                  data-conferma="Eliminare questa consegna?" data-conferma-ok="Elimina">
               <button class="text-red-500 hover:underline text-xs">Elimina</button>
             </form>
           </div>

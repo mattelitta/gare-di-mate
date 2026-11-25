@@ -29,5 +29,56 @@
   <main class="p-6 max-w-6xl mx-auto">
     {% block content %}{% endblock %}
   </main>
+
+  {# Conferma per le azioni pericolose: al posto di confirm() del browser, che seleziona sempre "OK".
+     Qui il cursore parte su "Annulla", quindi un Invio dato per sbaglio non fa nulla.
+     Uso: <form data-conferma="Messaggio" data-conferma-ok="Etichetta del tasto"> oppure, da JS,
+     chiediConferma(messaggio, etichetta).then(ok => ...). #}
+  <dialog id="dialogo-conferma" class="rounded-2xl shadow-2xl p-0 w-full max-w-md backdrop:bg-black/50">
+    <div class="p-6">
+      <p id="dialogo-conferma-testo" class="text-gray-900 mb-6 whitespace-pre-line"></p>
+      <div class="flex gap-3 justify-end">
+        <button type="button" id="dialogo-conferma-no" onclick="chiudiConferma(false)"
+                class="px-5 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50
+                       focus:outline-none focus:ring-4 focus:ring-blue-300">Annulla</button>
+        <button type="button" id="dialogo-conferma-ok" onclick="chiudiConferma(true)"
+                class="px-5 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700
+                       focus:outline-none focus:ring-4 focus:ring-red-300">Conferma</button>
+      </div>
+    </div>
+  </dialog>
+  <script>
+  let rispostaConferma = null;
+  function chiediConferma(messaggio, etichetta) {
+    const d = document.getElementById('dialogo-conferma');
+    document.getElementById('dialogo-conferma-testo').textContent = messaggio;
+    document.getElementById('dialogo-conferma-ok').textContent = etichetta || 'Conferma';
+    d.showModal();
+    document.getElementById('dialogo-conferma-no').focus();
+    return new Promise(risolvi => { rispostaConferma = risolvi; });
+  }
+  function chiudiConferma(ok) {
+    document.getElementById('dialogo-conferma').close();
+    const risolvi = rispostaConferma;
+    rispostaConferma = null;
+    if (risolvi) risolvi(ok);
+  }
+  // Esc = annulla
+  document.getElementById('dialogo-conferma').addEventListener('cancel', e => { e.preventDefault(); chiudiConferma(false); });
+  // Moduli con data-conferma: si inviano solo dopo la conferma.
+  document.addEventListener('submit', e => {
+    const form = e.target;
+    if (!form.dataset.conferma || form.dataset.confermato) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    const tasto = e.submitter;
+    chiediConferma(form.dataset.conferma, form.dataset.confermaOk).then(ok => {
+      if (!ok) return;
+      form.dataset.confermato = '1';
+      form.requestSubmit(tasto);
+      delete form.dataset.confermato;
+    });
+  }, true);
+  </script>
 </body>
 </html>

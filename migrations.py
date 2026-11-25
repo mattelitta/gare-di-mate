@@ -70,6 +70,7 @@ MIGRATIONS = [
     _backfill_time_adjustments,                                                            # 5
     _final_columns,                                                                        # 6
     _blackout_columns,                                                                     # 7
+    lambda c: _add_column(c, "competitions", "starting_score", "INTEGER"),                 # 8
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
 

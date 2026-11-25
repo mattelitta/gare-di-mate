@@ -20,7 +20,7 @@
       <span class="text-sm text-red-700 font-medium">Nessuna password: gli altri dispositivi non possono accedere.</span>
     {% endif %}
     <form method="post" action="/admin/password-accesso" class="flex gap-2 ml-auto"
-          {% if access_password_set %}onsubmit="return confirm('Cambiare la password? Tutti i dispositivi collegati dovranno rifare l\'accesso.')"{% endif %}>
+          {% if access_password_set %}data-conferma="Cambiare la password? Tutti i dispositivi collegati dovranno rifare l'accesso." data-conferma-ok="Cambia password"{% endif %}>
       <input name="password" type="password" required minlength="4" placeholder="Nuova password"
              class="border rounded px-3 py-1.5 text-sm">
       <button class="bg-blue-700 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-800">
@@ -36,7 +36,7 @@
   <div class="bg-white rounded-lg shadow p-4 flex items-center justify-between">
     <div>
       <span class="font-semibold text-lg">{{ comp.name }}</span>
-      <span class="text-gray-500 text-sm ml-2">{{ comp.date }}</span>
+      {% if comp.date %}<span class="text-gray-500 text-sm ml-2">{{ comp.date }}</span>{% endif %}
       <span class="ml-3 px-2 py-0.5 rounded text-xs font-medium
         {% if comp.status == 'running' %}bg-green-100 text-green-800
         {% elif comp.status == 'paused' %}bg-yellow-100 text-yellow-800
@@ -50,7 +50,7 @@
         <button class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-sm">Copia</button>
       </form>
       <form method="post" action="/admin/gara/{{ comp.id }}/elimina"
-            onsubmit="return confirm('Eliminare la gara {{ comp.name }}?')">
+            data-conferma="Eliminare la gara {{ comp.name }}?&#10;&#10;Verranno cancellate anche squadre, problemi e consegne." data-conferma-ok="Elimina la gara">
         <button class="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm">Elimina</button>
       </form>
     </div>

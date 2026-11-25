@@ -4,7 +4,7 @@
 <div class="flex items-center justify-between mb-4">
   <div>
     <h1 class="text-xl font-bold">Regia — {{ comp.name }}</h1>
-    <span class="text-sm text-gray-500">{{ comp.date }}</span>
+    {% if comp.date %}<span class="text-sm text-gray-500">{{ comp.date }}</span>{% endif %}
   </div>
   <a href="/regia/" class="text-sm text-gray-500 hover:underline">← Tutte le gare</a>
 </div>
@@ -32,7 +32,7 @@
       </button>
     </form>
     <form method="post" action="/regia/{{ comp.id }}/rivela-reset"
-          onsubmit="return confirm('Azzerare la rivelazione?')">
+          data-conferma="Azzerare la rivelazione della classifica finale?" data-conferma-ok="Azzera">
       <button class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-sm">Reset</button>
     </form>
   </div>
@@ -110,7 +110,7 @@
         </form>
       </div>
       <form method="post" action="/regia/{{ comp.id }}/display/{{ disp.id }}/elimina"
-            onsubmit="return confirm('Eliminare display {{ disp.name }}?')">
+            data-conferma="Eliminare il display {{ disp.name }}?" data-conferma-ok="Elimina">
         <button class="text-red-400 hover:text-red-600 text-sm">✕</button>
       </form>
     </div>

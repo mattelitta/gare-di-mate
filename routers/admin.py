@@ -73,12 +73,24 @@ async def admin_crea_form(request: Request):
     return templates.TemplateResponse("admin/crea.html", {"request": request})
 
 
+def _punteggio_iniziale(valore: str) -> int | None:
+    """Campo facoltativo: vuoto = automatico (10 × numero di problemi)."""
+    valore = valore.strip()
+    if not valore:
+        return None
+    try:
+        return int(valore)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Il punteggio iniziale deve essere un numero intero (o vuoto)")
+
+
 @router.post("/crea")
 async def admin_crea(
     request: Request,
     name: str = Form(...),
-    date: str = Form(...),
+    date: str = Form(""),
     initial_value: int = Form(40),
+    starting_score: str = Form(""),
     n: int = Form(2),
     k: int = Form(1),
     first_delivery_bonuses: str = Form("20,15,10,5,3"),
@@ -105,8 +117,9 @@ async def admin_crea(
 
     comp = Competition(
         name=name,
-        date=date,
+        date=date.strip(),
         initial_value=initial_value,
+        starting_score=_punteggio_iniziale(starting_score),
         n=n,
         k=k,
         first_delivery_bonuses_json=json.dumps(fd),
@@ -151,8 +164,9 @@ async def admin_modifica(
     request: Request,
     comp_id: int,
     name: str = Form(...),
-    date: str = Form(...),
+    date: str = Form(""),
     initial_value: int = Form(40),
+    starting_score: str = Form(""),
     n: int = Form(2),
     k: int = Form(1),
     first_delivery_bonuses: str = Form("20,15,10,5,3"),
@@ -180,8 +194,9 @@ async def admin_modifica(
     if blackout_minute > duration_minutes:
         raise HTTPException(status_code=400, detail=f"Minuto oscuramento ({blackout_minute}) superiore alla durata ({duration_minutes} min)")
     comp.name = name
-    comp.date = date
+    comp.date = date.strip()
     comp.initial_value = initial_value
+    comp.starting_score = _punteggio_iniziale(starting_score)
     comp.n = n
     comp.k = k
     comp.first_delivery_bonuses_json = json.dumps(fd)
@@ -194,6 +209,7 @@ async def admin_modifica(
     comp.final_reveal_count = final_reveal_count
     comp.display_theme = display_theme if display_theme in ('dark', 'light') else 'dark'
     db.commit()
+    state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
@@ -220,6 +236,7 @@ async def admin_copia(request: Request, comp_id: int, db: Session = Depends(get_
         name=f"{orig.name} (copia)",
         date=orig.date,
         initial_value=orig.initial_value,
+        starting_score=orig.starting_score,
         n=orig.n,
         k=orig.k,
         first_delivery_bonuses_json=orig.first_delivery_bonuses_json,

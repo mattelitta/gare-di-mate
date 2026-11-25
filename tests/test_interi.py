@@ -8,7 +8,7 @@ from engine import compute_state
 
 def comp(submissions=(), threshold_minute=60, n=2):
     return NS(
-        threshold_minute=threshold_minute, n=n, k=1, initial_value=40,
+        threshold_minute=threshold_minute, n=n, k=1, initial_value=40, starting_score=None,
         first_delivery_bonuses=[20, 10], full_bonuses=[50],
         teams=[NS(id=i, number=i, name=f"S{i}", city="", is_guest=False) for i in (1, 2, 3)],
         problems=[NS(id=1, number=1, name="P1")], jolly_choices=[], penalties=[],

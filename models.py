@@ -12,10 +12,11 @@ class Competition(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
-    date: Mapped[str] = mapped_column(String(20))  # ISO date string
+    date: Mapped[str] = mapped_column(String(20), default="")  # ISO date string; facoltativa: "" se non indicata
 
     # Scoring parameters
     initial_value: Mapped[int] = mapped_column(Integer, default=40)
+    starting_score: Mapped[int | None] = mapped_column(Integer, nullable=True)  # None = 10 × numero di problemi
     n: Mapped[int] = mapped_column(Integer, default=2)
     k: Mapped[int] = mapped_column(Integer, default=1)
     first_delivery_bonuses_json: Mapped[str] = mapped_column(Text, default="[20,15,10,5,3]")
@@ -79,6 +80,11 @@ class Competition(Base):
     @first_delivery_bonuses.setter
     def first_delivery_bonuses(self, value: list[int]):
         self.first_delivery_bonuses_json = json.dumps(value)
+
+    @property
+    def effective_starting_score(self) -> int:
+        """Punteggio iniziale delle squadre: quello indicato, oppure 10 × numero di problemi."""
+        return self.starting_score if self.starting_score is not None else 10 * len(self.problems)
 
     @property
     def final_ranking(self) -> list[dict] | None:

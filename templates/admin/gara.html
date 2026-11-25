@@ -4,7 +4,7 @@
 <div class="flex items-center justify-between mb-4">
   <div>
     <h1 class="text-2xl font-bold">{{ comp.name }}</h1>
-    <span class="text-gray-500 text-sm">{{ comp.date }}</span>
+    {% if comp.date %}<span class="text-gray-500 text-sm">{{ comp.date }}</span>{% endif %}
     <span class="ml-3 px-2 py-0.5 rounded text-xs font-medium
       {% if comp.status == 'running' %}bg-green-100 text-green-800
       {% elif comp.status == 'paused' %}bg-yellow-100 text-yellow-800
@@ -20,16 +20,82 @@
 <div class="bg-white rounded-lg shadow p-4 mb-4 flex flex-wrap gap-2 items-center">
   <span class="font-medium text-sm mr-2">Stato gara:</span>
   {% if comp.status == 'created' %}
-    <form method="post" action="/admin/gara/{{ comp.id }}/avvia"
-          onsubmit="return confirm('Avviare la gara? Il timer partirà ora.')">
-      <button class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm">▶ Avvia</button>
-    </form>
+    {# Questo tasto apre solo il riepilogo: la gara parte con "Avvia ora", nel momento esatto scelto. #}
+    <button type="button" onclick="apriAvvio()"
+            class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm">▶ Prepara l'avvio…</button>
+    {% set ospiti = comp.teams|selectattr('is_guest')|list|length %}
+    <dialog id="dialogo-avvio" class="rounded-2xl shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/50">
+      <form method="post" action="/admin/gara/{{ comp.id }}/avvia" class="p-6">
+        <h3 class="text-xl font-bold mb-1">Avvio della gara</h3>
+        <p class="text-gray-500 mb-4">{{ comp.name }}{% if comp.date %} — {{ comp.date }}{% endif %}</p>
+        <div class="text-center bg-gray-50 border rounded-xl py-3 mb-4">
+          <span class="block text-sm text-gray-500">Ora attuale</span>
+          <span id="avvio-ora" class="font-mono text-5xl font-bold tracking-wider">--:--:--</span>
+        </div>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-4">
+          <span class="text-gray-500">Squadre</span>
+          <span class="font-semibold">{{ comp.teams|length }}{% if ospiti %} <span class="font-normal text-gray-500">(di cui {{ ospiti }} ospit{{ 'e' if ospiti == 1 else 'i' }})</span>{% endif %}</span>
+          <span class="text-gray-500">Problemi</span>
+          <span class="font-semibold">{{ comp.problems|length }}</span>
+          <span class="text-gray-500">Durata</span>
+          <span class="font-semibold">{{ comp.duration_minutes }} min
+            <span class="font-normal text-gray-500">(fine alle <span id="avvio-fine" class="font-mono"></span>)</span></span>
+          <span class="text-gray-500">Chiusura jolly</span>
+          <span class="font-semibold">minuto {{ comp.jolly_time_minutes }}
+            <span class="font-normal text-gray-500">(alle <span id="avvio-jolly" class="font-mono"></span>)</span></span>
+          <span class="text-gray-500">n e k</span>
+          <span class="font-semibold">n = {{ comp.n }}, k = {{ comp.k }}</span>
+        </div>
+        {% if not comp.teams or not comp.problems %}
+        <p class="bg-red-50 border border-red-300 text-red-700 rounded-lg px-3 py-2 text-sm font-medium mb-4">
+          Attenzione: {% if not comp.teams and not comp.problems %}non ci sono né squadre né problemi{% elif not comp.teams %}non ci sono squadre{% else %}non ci sono problemi{% endif %}.
+          Si possono aggiungere da "Modifica parametri".
+        </p>
+        {% endif %}
+        <p class="text-sm text-gray-600 mb-5">
+          Il cronometro parte nel momento in cui si preme <strong>Avvia ora</strong>; gli orari di fine e di
+          chiusura jolly si riferiscono a un avvio in questo istante.
+        </p>
+        <div class="flex gap-3 justify-end">
+          <button type="button" id="avvio-annulla" onclick="chiudiAvvio()"
+                  class="px-5 py-2.5 rounded-lg border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50
+                         focus:outline-none focus:ring-4 focus:ring-blue-300">Annulla</button>
+          <button type="submit"
+                  class="px-6 py-2.5 rounded-lg bg-green-600 text-white text-lg font-bold hover:bg-green-700
+                         focus:outline-none focus:ring-4 focus:ring-green-300">▶ Avvia ora</button>
+        </div>
+      </form>
+    </dialog>
+    <script>
+      (function () {
+        const d = document.getElementById('dialogo-avvio');
+        const ora = t => t.toLocaleTimeString('it-IT', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+        let timer = null;
+        function aggiorna() {
+          const adesso = new Date();
+          document.getElementById('avvio-ora').textContent = ora(adesso);
+          document.getElementById('avvio-fine').textContent = ora(new Date(adesso.getTime() + {{ comp.duration_minutes }} * 60000));
+          document.getElementById('avvio-jolly').textContent = ora(new Date(adesso.getTime() + {{ comp.jolly_time_minutes }} * 60000));
+        }
+        window.apriAvvio = function () {
+          aggiorna();
+          timer = setInterval(aggiorna, 250);
+          d.showModal();
+          document.getElementById('avvio-annulla').focus();  // un Invio per sbaglio non avvia la gara
+        };
+        window.chiudiAvvio = function () {
+          clearInterval(timer);
+          d.close();
+        };
+        d.addEventListener('cancel', e => { e.preventDefault(); chiudiAvvio(); });  // Esc
+      })();
+    </script>
   {% elif comp.status == 'running' %}
     <form method="post" action="/admin/gara/{{ comp.id }}/pausa">
       <button class="bg-yellow-500 text-white px-4 py-1.5 rounded hover:bg-yellow-600 text-sm">⏸ Pausa</button>
     </form>
     <form method="post" action="/admin/gara/{{ comp.id }}/termina"
-          onsubmit="return confirm('Terminare definitivamente la gara?')">
+          data-conferma="Terminare definitivamente la gara?&#10;&#10;La classifica verrà oscurata." data-conferma-ok="Termina la gara">
       <button class="bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700 text-sm">⏹ Termina</button>
     </form>
   {% elif comp.status == 'paused' %}
@@ -37,12 +103,12 @@
       <button class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm">▶ Riprendi</button>
     </form>
     <form method="post" action="/admin/gara/{{ comp.id }}/termina"
-          onsubmit="return confirm('Terminare definitivamente la gara?')">
+          data-conferma="Terminare definitivamente la gara?&#10;&#10;La classifica verrà oscurata." data-conferma-ok="Termina la gara">
       <button class="bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700 text-sm">⏹ Termina</button>
     </form>
   {% elif comp.status == 'ended' %}
     <form method="post" action="/admin/gara/{{ comp.id }}/calcola-finale"
-          {% if comp.revealed_positions %}onsubmit="return confirm('La rivelazione della classifica finale è già iniziata ({{ comp.revealed_positions }} posizioni).\n\nRicalcolando, ripartirà dall\'inizio. Continuare?')"{% endif %}>
+          {% if comp.revealed_positions %}data-conferma="La rivelazione della classifica finale è già iniziata ({{ comp.revealed_positions }} posizioni).&#10;&#10;Ricalcolando, ripartirà dall'inizio. Continuare?" data-conferma-ok="Ricalcola"{% endif %}>
       <button class="bg-blue-700 text-white px-4 py-1.5 rounded hover:bg-blue-800 text-sm">
         {% if comp.final_computed_at %}🔄 Ricalcola classifica finale{% else %}📊 Calcola classifica finale{% endif %}
       </button>
@@ -141,7 +207,7 @@
       <a href="#" onclick="apriModificaAvanzamento({{ adj.id }}, {{ adj.seconds|round|int }}); return false;"
          class="text-blue-600 hover:underline text-xs">modifica</a>
       <form method="post" action="/admin/gara/{{ comp.id }}/avanzamenti/{{ adj.id }}/elimina"
-            onsubmit="return confirm('Eliminare questo avanzamento?\n\nIl cronometro e le consegne registrate dopo torneranno indietro di {{ durata(adj.seconds) }}.')">
+            data-conferma="Eliminare questo avanzamento?&#10;&#10;Il cronometro e le consegne registrate dopo torneranno indietro di {{ durata(adj.seconds) }}." data-conferma-ok="Elimina">
         <button class="text-red-500 hover:underline text-xs">elimina</button>
       </form>
     </div>
@@ -223,8 +289,10 @@
     }
     const ora = tempoGara();
     const dopo = Math.min(ora + delta, TEMPO_GARA.durata);
-    return confirm('Far avanzare il tempo di gara?\n\nIl cronometro passerà da ' + mmss(ora) + ' a ' + mmss(dopo) +
-                   (ora + delta > TEMPO_GARA.durata ? ' (fine della gara).' : '.'));
+    chiediConferma('Far avanzare il tempo di gara?\n\nIl cronometro passerà da ' + mmss(ora) + ' a ' + mmss(dopo) +
+                   (ora + delta > TEMPO_GARA.durata ? ' (fine della gara).' : '.'), 'Avanza il tempo')
+      .then(ok => { if (ok) form.submit(); });
+    return false;
   }
 </script>
 {% endif %}
@@ -288,7 +356,7 @@
           {% if pen.note %}<span class="text-gray-500 ml-1 text-xs">– {{ pen.note }}</span>{% endif %}
         </span>
         <form method="post" action="/admin/gara/{{ comp.id }}/penalizzazioni/{{ pen.id }}/elimina"
-              onsubmit="return confirm('Eliminare questo bonus o penalizzazione?')">
+              data-conferma="Eliminare questo bonus o penalizzazione?" data-conferma-ok="Elimina">
           <button class="text-red-500 hover:underline text-xs">elim.</button>
         </form>
       </div>
@@ -315,6 +383,8 @@
     <h2 class="font-semibold mb-3">Parametri</h2>
     <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-gray-700">
       <span class="text-gray-500">Valore iniziale</span><span>{{ comp.initial_value }}</span>
+      <span class="text-gray-500">Punteggio iniziale squadre</span>
+      <span>{{ comp.effective_starting_score }}{% if comp.starting_score is none %} <span class="text-gray-400">(automatico: 10 × {{ comp.problems|length }} problemi)</span>{% endif %}</span>
       <span class="text-gray-500">n</span><span>{{ comp.n }}</span>
       <span class="text-gray-500">k</span><span>{{ comp.k }}</span>
       <span class="text-gray-500">Durata</span><span>{{ comp.duration_minutes }} min</span>

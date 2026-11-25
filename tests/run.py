@@ -34,6 +34,7 @@ TESTS = [
     ("Fine gara: classifica e blocco", "tests/test_finale.py", True, True),
     ("Oscuramento e scadenze", "tests/test_oscuramento.py", True, True),
     ("Pagine admin e inserimento", "tests/test_admin.py", True, True),
+    ("Parametri di gara", "tests/test_parametri.py", True, True),
     ("Avanzamenti del tempo", "tests/test_avanzamenti.py", False, True),
     ("Crash e avanzamento manuale", "tests/test_crash.py", False, False),
     ("Crash con due gare", "tests/test_crash_due.py", False, False),

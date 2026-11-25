@@ -12,7 +12,7 @@ Key rules:
 - Full bonus: fixed when team completes all problems
 - Jolly: x2 on all contributions for chosen problem
 - Penalties: arbitrary additions
-- Starting score: 10 x num_problems
+- Starting score: comp.starting_score, or 10 x num_problems if not set
 - Post-game submissions: treated as game_seconds = duration_minutes * 60
 
 Performance notes:
@@ -200,7 +200,7 @@ def compute_state(
         penalty_map[pen.team_id] = penalty_map.get(pen.team_id, 0) + pen.value
 
     # --- Assemblaggio punteggi squadre ---
-    starting = 10 * num_problems
+    starting = comp.starting_score if comp.starting_score is not None else 10 * num_problems
     team_scores: dict[int, TeamScore] = {}
 
     for tid, team in teams.items():

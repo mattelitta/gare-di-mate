@@ -4,7 +4,7 @@
 <div class="flex items-center justify-between mb-4">
   <div>
     <h1 class="text-xl font-bold">{{ comp.name }}</h1>
-    <span class="text-sm text-gray-500">{{ comp.date }}</span>
+    {% if comp.date %}<span class="text-sm text-gray-500">{{ comp.date }}</span>{% endif %}
   </div>
   <a href="/inserimento/{{ comp.id }}/consegne"
      class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">📋 Storico consegne</a>
@@ -171,9 +171,11 @@
   </div>
 
   <!-- Modale di conferma consegna -->
-  <div x-show="modale" x-cloak
-       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-       @keydown.escape.window="modale = false">
+  {# Con una classe e non con x-show (che mostra la finestra solo al fotogramma successivo):
+     così il tasto Conferma è già visibile quando gli si dà il cursore. #}
+  <div x-cloak :class="modale ? 'flex' : 'hidden'"
+       class="fixed inset-0 bg-black/50 items-center justify-center z-50"
+       @keydown.escape.window="if (modale) annulla()">
     <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-4" @click.stop>
       <h3 class="text-xl font-bold mb-6 text-center">Conferma consegna</h3>
       <div class="space-y-3 mb-4 text-center">
@@ -196,13 +198,15 @@
            x-text="corretta ? 'CORRETTA' : 'ERRATA'">
       </div>
       <div class="flex gap-3">
-        <button @click="modale = false"
-                class="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 text-lg">
+        <button @click="annulla()"
+                class="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 text-lg
+                       focus:outline-none focus:ring-4 focus:ring-blue-300">
           Annulla
         </button>
-        <button @click="conferma()"
-                class="flex-1 py-3 rounded-xl font-semibold text-white text-lg"
-                :class="corretta ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'">
+        {# Selezionato all'apertura: un solo Invio conferma la consegna. #}
+        <button x-ref="conferma" @click="conferma()"
+                class="flex-1 py-3 rounded-xl font-semibold text-white text-lg focus:outline-none focus:ring-4"
+                :class="corretta ? 'bg-green-600 hover:bg-green-700 focus:ring-green-300' : 'bg-red-500 hover:bg-red-600 focus:ring-red-300'">
           Conferma
         </button>
       </div>
@@ -367,10 +371,9 @@ function consegna() {
     },
     assegnaMancanti(e) {
       const n = this.senzaJolly().length;
-      if (confirm('Assegnare il jolly sul problema {{ "%02d"|format(jolly_predefinito or 0) }} a ' + n +
-                  (n === 1 ? ' squadra che non l\'ha scelto?' : ' squadre che non l\'hanno scelto?'))) {
-        e.target.submit();
-      }
+      chiediConferma('Assegnare il jolly sul problema {{ "%02d"|format(jolly_predefinito or 0) }} a ' + n +
+                     (n === 1 ? ' squadra che non l\'ha scelto?' : ' squadre che non l\'hanno scelto?'), 'Assegna')
+        .then(ok => { if (ok) e.target.submit(); });
     },
     inviaJolly(e) {
       if (!this.puoInviare) return;
@@ -396,6 +399,12 @@ function consegna() {
       this.corretta = rispCorretta !== undefined &&
                       this.risposta.padStart(4, '0') === rispCorretta;
       this.modale = true;
+      this.$nextTick(() => this.$refs.conferma.focus());
+    },
+    annulla() {
+      // Si torna sulla risposta, pronta da correggere.
+      this.modale = false;
+      this.$nextTick(() => this.$refs.s_risposta.select());
     },
     conferma() {
       this.modale = false;
