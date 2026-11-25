@@ -46,12 +46,30 @@ def _backfill_time_adjustments(c):
     )
 
 
+def _final_columns(c):
+    _add_column(c, "competitions", "insertions_locked", "BOOLEAN DEFAULT 0")
+    _add_column(c, "competitions", "final_ranking_json", "TEXT")
+    _add_column(c, "competitions", "final_computed_at", "DATETIME")
+    # Le gare "bloccate" con la versione precedente restano con gli inserimenti bloccati;
+    # la loro classifica finale va calcolata di nuovo con il tasto apposito.
+    columns = {row[1] for row in c.exec_driver_sql("PRAGMA table_info(competitions)")}
+    if "final_locked" in columns:
+        c.exec_driver_sql("UPDATE competitions SET insertions_locked = 1 WHERE final_locked = 1")
+
+
+def _blackout_columns(c):
+    _add_column(c, "competitions", "blackout_manual", "BOOLEAN")
+    _add_column(c, "competitions", "blackout_manual_at", "FLOAT")
+
+
 MIGRATIONS = [
     lambda c: _add_column(c, "displays", "text_scale", "INTEGER DEFAULT 3"),               # 1
     lambda c: _add_column(c, "competitions", "display_theme", "VARCHAR DEFAULT 'light'"),  # 2
     lambda c: _add_column(c, "submissions", "device_id", "VARCHAR(64)"),                   # 3
     _time_columns,                                                                         # 4
     _backfill_time_adjustments,                                                            # 5
+    _final_columns,                                                                        # 6
+    _blackout_columns,                                                                     # 7
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
 

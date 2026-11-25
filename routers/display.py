@@ -86,10 +86,9 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
 
     elapsed = comp.elapsed_seconds()
     remaining = max(0, comp.duration_minutes * 60 - elapsed)
-    blackout_active = (
-        comp.status in ("running", "paused", "ended")
-        and elapsed >= comp.blackout_minute * 60
-    )
+    # Da lì classifica, elenco squadre e stato gara restano nascosti; la classifica si vede solo
+    # con la rivelazione della classifica finale dalla regia.
+    blackout_active = comp.blackout_active()
 
     # Controlla cache — se presente evita di ricaricare tutto dal DB
     cached = state_cache.get(comp_id)
@@ -147,7 +146,8 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
         "n": comp.n,
         "num_qualified": comp.num_qualified,
         "revealed_positions": comp.revealed_positions,
-        "final_locked": comp.final_locked,
+        "final_ready": comp.final_ranking_json is not None,
+        "final_ranking": comp.final_ranking or [],  # fotografia calcolata dall'Admin
         "teams": teams_data,
         "problems": problems_data,
     }

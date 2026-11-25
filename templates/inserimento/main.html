@@ -10,13 +10,49 @@
      class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">📋 Storico consegne</a>
 </div>
 
-{% if jolly_expired %}
-<div class="bg-orange-100 border border-orange-300 text-orange-800 rounded px-4 py-2 text-sm mb-4">
-  Tempo jolly scaduto ({{ comp.jolly_time_minutes }} min).
+{% if request.query_params.get('errore') %}
+<div class="bg-red-100 border border-red-300 text-red-800 rounded-lg px-4 py-3 mb-4 font-medium">
+  ⚠️ {{ request.query_params.get('errore') }}
+</div>
+{% endif %}
+
+{% if request.query_params.get('esito') %}
+<div class="bg-green-100 border border-green-300 text-green-800 rounded-lg px-4 py-3 mb-4 font-medium">
+  ✓ {{ request.query_params.get('esito') }}
 </div>
 {% endif %}
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4" x-data="consegna()">
+
+  <!-- Stato della gara (aggiornato ogni 2 s, i tempi scorrono ogni secondo) -->
+  {# Tre sezioni con la stessa forma; le parti vuote sono nascoste (x-show) e ogni parola dista ml-2 dalla precedente. #}
+  <div class="md:col-span-2 bg-white rounded-lg shadow px-3 py-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+    <div class="flex items-center h-11 px-3 rounded-lg">
+      <span class="text-sm text-gray-500">Stato</span>
+      <span class="ml-2 px-2.5 py-0.5 rounded-full text-sm font-semibold" :class="classeStato()" x-text="etichettaStato()"></span>
+      <span x-show="locked" x-cloak class="ml-2 px-2.5 py-0.5 rounded-full text-sm font-semibold bg-red-100 text-red-800">
+        🔒 Inserimenti bloccati
+      </span>
+    </div>
+    <div class="flex items-center h-11 px-3 rounded-lg">
+      <div class="flex items-baseline">
+        <span class="text-sm text-gray-500">Fine gara</span>
+        <template x-for="(parte, i) in fine()" :key="i">
+          <span x-show="parte" x-text="parte" class="ml-2"
+                :class="i === 1 ? 'font-mono text-2xl font-bold' : 'text-sm'"></span>
+        </template>
+      </div>
+    </div>
+    <div class="flex items-center h-11 px-3 rounded-lg" :class="classeFaseJolly()">
+      <div class="flex items-baseline">
+        <span class="text-sm" :class="['avviso', 'scaduto'].includes(faseJolly()) ? '' : 'text-gray-500'">Scelta jolly</span>
+        <template x-for="(parte, i) in scadenzaJolly()" :key="i">
+          <span x-show="parte" x-text="parte" class="ml-2"
+                :class="i === 1 ? 'font-mono text-2xl font-bold' : 'text-sm'"></span>
+        </template>
+      </div>
+    </div>
+  </div>
 
   <div x-show="!avviata" {% if started %}x-cloak{% endif %}
        class="md:col-span-2 bg-blue-50 border border-blue-300 text-blue-800 rounded-lg px-4 py-3">
@@ -24,74 +60,109 @@
     L'invio di jolly e soluzioni si attiverà da solo appena la gara parte.
   </div>
 
+  <div x-show="locked" {% if not comp.insertions_locked %}x-cloak{% endif %}
+       class="md:col-span-2 bg-red-50 border border-red-300 text-red-800 rounded-lg px-4 py-3">
+    <span class="font-semibold">🔒 Gli inserimenti sono stati bloccati dall'Admin.</span>
+    Non si possono registrare né modificare jolly e soluzioni finché l'Admin non li riapre.
+  </div>
+
   <!-- Inserimento Jolly -->
   <div class="bg-white rounded-lg shadow p-5">
     <h2 class="font-semibold text-lg mb-4">🃏 Jolly</h2>
-    <form method="post" action="/inserimento/{{ comp.id }}/jolly" class="space-y-3">
+    <form method="post" action="/inserimento/{{ comp.id }}/jolly" class="space-y-3" novalidate
+          @submit.prevent="inviaJolly($event)">
       <div>
         <label class="block text-sm font-medium mb-1">ID Squadra</label>
-        <input name="team_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
-               placeholder="01" autofocus oninput="autoAvanza(this)"
+        <input x-ref="j_squadra" x-model="jSquadra" @input="errJolly = ''" name="team_number" type="text"
+               inputmode="numeric" maxlength="2" placeholder="01" autofocus oninput="autoAvanza(this)"
+               :class="campoJolly === 'squadra' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">ID Problema</label>
-        <input name="problem_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
-               placeholder="01" oninput="autoAvanza(this)"
+        <input x-ref="j_problema" x-model="jProblema" @input="errJolly = ''" name="problem_number" type="text"
+               inputmode="numeric" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
+               :class="campoJolly === 'problema' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
-      <button type="submit" :disabled="!avviata" {% if not started %}disabled{% endif %}
+      <p x-show="errJolly" x-cloak x-text="errJolly"
+         class="bg-red-50 border border-red-300 text-red-700 rounded-lg px-3 py-2 text-sm font-medium"></p>
+      <button type="submit" :disabled="!puoInviare" {% if not started or comp.insertions_locked %}disabled{% endif %}
               class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 text-lg
                      disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-purple-600">
         Registra Jolly
       </button>
     </form>
 
-    <!-- Jolly già assegnati -->
-    {% if jolly_map %}
+    <!-- Squadre senza jolly: gialle negli ultimi 2 minuti, rosse dopo la scadenza -->
     <div class="mt-4 pt-4 border-t">
-      <p class="text-xs text-gray-500 mb-2 font-medium">Jolly registrati:</p>
+      <p class="text-xs text-gray-500 mb-2 font-medium">
+        Squadre senza jolly (<span x-text="senzaJolly().length"></span>)
+      </p>
+      <div class="flex flex-wrap gap-1.5">
+        <template x-for="t in senzaJolly()" :key="t.n">
+          <span class="px-2 py-0.5 rounded text-sm font-medium" :class="classeSenzaJolly()">
+            <span class="font-mono" x-text="due(t.n)"></span> <span x-text="t.nome"></span>
+          </span>
+        </template>
+        <span x-show="senzaJolly().length === 0" class="text-sm text-green-700 font-medium">
+          Tutte le squadre hanno scelto il jolly ✓
+        </span>
+      </div>
+      {% if jolly_predefinito is not none %}
+      <form method="post" action="/inserimento/{{ comp.id }}/jolly-mancanti" class="mt-3"
+            x-show="faseJolly() === 'scaduto' && senzaJolly().length > 0 && !locked" x-cloak
+            @submit.prevent="assegnaMancanti($event)">
+        <button class="w-full bg-red-600 text-white py-2.5 rounded-lg font-semibold hover:bg-red-700">
+          Assegna il jolly sul problema {{ "%02d"|format(jolly_predefinito) }}
+          alle squadre senza jolly (<span x-text="senzaJolly().length"></span>)
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <!-- Jolly registrati -->
+    <div class="mt-4 pt-4 border-t" x-show="conJolly().length > 0" x-cloak>
+      <p class="text-xs text-gray-500 mb-2 font-medium">Jolly registrati (<span x-text="conJolly().length"></span>)</p>
       <div class="space-y-1">
-        {% for team in teams %}
-          {% if team.id in jolly_map %}
+        <template x-for="t in conJolly()" :key="t.n">
           <div class="flex justify-between text-sm">
-            <span><span class="font-mono text-gray-400">{{ "%02d"|format(team.number) }}</span> {{ team.name }}</span>
-            <span class="font-medium">
-              {% for prob in problems %}
-                {% if prob.id == jolly_map[team.id] %}P{{ "%02d"|format(prob.number) }}{% endif %}
-              {% endfor %}
-            </span>
+            <span><span class="font-mono text-gray-400" x-text="due(t.n)"></span> <span x-text="t.nome"></span></span>
+            <span class="font-medium" x-text="'P' + due(jolly[t.n])"></span>
           </div>
-          {% endif %}
-        {% endfor %}
+        </template>
       </div>
     </div>
-    {% endif %}
   </div>
 
   <!-- Inserimento Soluzione -->
   <div class="bg-white rounded-lg shadow p-5">
     <h2 class="font-semibold text-lg mb-4">✏️ Soluzione</h2>
-    <form @submit.prevent="apriConferma($event)" class="space-y-3">
+    <form @submit.prevent="apriConferma($event)" class="space-y-3" novalidate>
       <div>
         <label class="block text-sm font-medium mb-1">ID Squadra</label>
-        <input x-model="squadra" name="team_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
-               placeholder="01" oninput="autoAvanza(this)"
+        <input x-ref="s_squadra" x-model="squadra" @input="errSol = ''" name="team_number" type="text"
+               inputmode="numeric" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
+               :class="campoSol === 'squadra' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">ID Problema</label>
-        <input x-model="problema" name="problem_number" type="text" inputmode="numeric" maxlength="2" pattern="\d{1,2}"
-               placeholder="01" oninput="autoAvanza(this)"
+        <input x-ref="s_problema" x-model="problema" @input="errSol = ''" name="problem_number" type="text"
+               inputmode="numeric" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
+               :class="campoSol === 'problema' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Risposta</label>
-        <input x-model="risposta" name="answer" type="text" inputmode="numeric" maxlength="4" pattern="\d{4}"
-               placeholder="0000" oninput="autoAvanza(this)"
+        <input x-ref="s_risposta" x-model="risposta" @input="errSol = ''" name="answer" type="text"
+               inputmode="numeric" maxlength="4" placeholder="0000" oninput="autoAvanza(this)"
+               :class="campoSol === 'risposta' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-3xl font-mono text-center tracking-widest focus:border-green-500 outline-none">
       </div>
-      <button type="submit" :disabled="!avviata" {% if not started %}disabled{% endif %}
+      <p x-show="errSol" x-cloak x-text="errSol"
+         class="bg-red-50 border border-red-300 text-red-700 rounded-lg px-3 py-2 text-sm font-medium"></p>
+      <button type="submit" :disabled="!puoInviare" {% if not started or comp.insertions_locked %}disabled{% endif %}
               class="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 text-lg
                      disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-green-600">
         Consegna
@@ -187,29 +258,140 @@ const RISPOSTE = {
   {{ prob.number }}: '{{ prob.answer }}',
   {% endfor %}
 };
+const SQUADRE_ELENCO = {{ squadre|tojson }};
+const SQUADRE = new Set(SQUADRE_ELENCO.map(t => t.n));
+const STATO_INIZIALE = {{ stato|tojson }};
+const AVVISO_JOLLY_SECONDI = 120;
+
+// Controlla i campi; ritorna [campo, messaggio] per il primo errore, oppure null.
+function verifica(squadra, problema, risposta) {
+  const numero = (valore, cosa, esiste) => {
+    valore = valore.trim();
+    if (!valore) return 'Inserire il numero ' + cosa + '.';
+    if (!/^\d+$/.test(valore)) return 'Il numero ' + cosa + ' deve contenere solo cifre.';
+    if (!esiste(parseInt(valore))) {
+      return (cosa === 'della squadra' ? 'La squadra ' : 'Il problema ') + valore.padStart(2, '0') +
+             ' non esiste: controllare l\'elenco in fondo alla pagina.';
+    }
+    return null;
+  };
+  let msg = numero(squadra, 'della squadra', n => SQUADRE.has(n));
+  if (msg) return ['squadra', msg];
+  msg = numero(problema, 'del problema', n => n in RISPOSTE);
+  if (msg) return ['problema', msg];
+  if (risposta !== undefined) {
+    risposta = risposta.trim();
+    if (!risposta) return ['risposta', 'Inserire la risposta.'];
+    if (!/^\d{1,4}$/.test(risposta)) return ['risposta', 'La risposta deve essere un numero da 0 a 9999 (solo cifre).'];
+  }
+  return null;
+}
 
 function consegna() {
   return {
     squadra: '',
     problema: '',
     risposta: '',
+    jSquadra: '',
+    jProblema: '',
+    errJolly: '',
+    campoJolly: '',
+    errSol: '',
+    campoSol: '',
     modale: false,
     corretta: false,
-    avviata: {{ 'true' if started else 'false' }},
+    stato: STATO_INIZIALE.status,
+    locked: STATO_INIZIALE.locked,
+    elapsed: STATO_INIZIALE.elapsed,
+    durata: STATO_INIZIALE.duration,
+    jollySec: STATO_INIZIALE.jolly_seconds,
+    jolly: STATO_INIZIALE.jolly,  // numero squadra -> numero problema
+    letto: Date.now(),
+    ora: Date.now(),
+    get avviata() { return this.stato !== 'created'; },
+    get puoInviare() { return this.avviata && !this.locked; },
     init() {
-      if (this.avviata) return;
-      const timer = setInterval(async () => {
-        try {
-          const r = await fetch('/inserimento/{{ comp.id }}/stato');
-          if ((await r.json()).status !== 'created') {
-            this.avviata = true;
-            clearInterval(timer);
-          }
-        } catch (e) {}
-      }, 2000);
+      setInterval(() => { this.ora = Date.now(); }, 1000);
+      setInterval(() => this.aggiorna(), 2000);
+    },
+    async aggiorna() {
+      try {
+        const r = await fetch('/inserimento/{{ comp.id }}/stato');
+        if (!r.ok) return;
+        const s = await r.json();
+        Object.assign(this, {stato: s.status, locked: s.locked, elapsed: s.elapsed, durata: s.duration,
+                             jollySec: s.jolly_seconds, jolly: s.jolly, letto: Date.now()});
+      } catch (e) {}
+    },
+    tempo() {
+      return this.elapsed + (this.stato === 'running' ? Math.max(0, this.ora - this.letto) / 1000 : 0);
+    },
+    due(n) { return String(n).padStart(2, '0'); },
+    mmss(s) {
+      s = Math.max(0, Math.floor(s));
+      return this.due(Math.floor(s / 60)) + ':' + this.due(s % 60);
+    },
+    etichettaStato() {
+      return {created: 'Non iniziata', running: 'In corso', paused: 'In pausa', ended: 'Terminata'}[this.stato] || this.stato;
+    },
+    classeStato() {
+      return {created: 'bg-blue-100 text-blue-800', running: 'bg-green-100 text-green-800',
+              paused: 'bg-yellow-100 text-yellow-800', ended: 'bg-gray-200 text-gray-700'}[this.stato] || '';
+    },
+    // [testo prima, tempo (in grassetto), testo dopo]
+    fine() {
+      if (this.stato === 'created') return ['', this.mmss(this.durata), 'dalla partenza'];
+      if (this.stato === 'ended') return ['', '', 'terminata'];
+      return ['tra', this.mmss(this.durata - this.tempo()), ''];
+    },
+    faseJolly() {
+      if (!this.avviata) return 'attesa';
+      if (this.stato === 'ended') return 'scaduto';  // anche se la gara è stata terminata in anticipo
+      const manca = this.jollySec - this.tempo();
+      return manca <= 0 ? 'scaduto' : (manca <= AVVISO_JOLLY_SECONDI ? 'avviso' : 'aperto');
+    },
+    scadenzaJolly() {
+      const fase = this.faseJolly();
+      if (fase === 'attesa') return ['', this.mmss(this.jollySec), 'dalla partenza'];
+      if (fase === 'scaduto') return ['', '', 'tempo scaduto'];
+      return ['tra', this.mmss(this.jollySec - this.tempo()), ''];
+    },
+    classeFaseJolly() {
+      return {avviso: 'bg-yellow-200 text-yellow-900', scaduto: 'bg-red-100 text-red-800'}[this.faseJolly()] || '';
+    },
+    senzaJolly() { return SQUADRE_ELENCO.filter(t => !(t.n in this.jolly)); },
+    conJolly() { return SQUADRE_ELENCO.filter(t => t.n in this.jolly); },
+    classeSenzaJolly() {
+      return {avviso: 'bg-yellow-100 text-yellow-900 ring-2 ring-yellow-400',
+              scaduto: 'bg-red-100 text-red-800 ring-2 ring-red-400'}[this.faseJolly()] || 'bg-gray-100 text-gray-700';
+    },
+    assegnaMancanti(e) {
+      const n = this.senzaJolly().length;
+      if (confirm('Assegnare il jolly sul problema {{ "%02d"|format(jolly_predefinito or 0) }} a ' + n +
+                  (n === 1 ? ' squadra che non l\'ha scelto?' : ' squadre che non l\'hanno scelto?'))) {
+        e.target.submit();
+      }
+    },
+    inviaJolly(e) {
+      if (!this.puoInviare) return;
+      const errore = verifica(this.jSquadra, this.jProblema);
+      this.campoJolly = errore ? errore[0] : '';
+      this.errJolly = errore ? 'Jolly non registrato. ' + errore[1] : '';
+      if (errore) {
+        this.$refs['j_' + errore[0]].select();
+        return;
+      }
+      e.target.submit();
     },
     apriConferma(e) {
-      if (!this.avviata || !this.squadra || !this.problema || !this.risposta) return;
+      if (!this.puoInviare) return;
+      const errore = verifica(this.squadra, this.problema, this.risposta);
+      this.campoSol = errore ? errore[0] : '';
+      this.errSol = errore ? 'Consegna non registrata. ' + errore[1] : '';
+      if (errore) {
+        this.$refs['s_' + errore[0]].select();
+        return;
+      }
       const rispCorretta = RISPOSTE[parseInt(this.problema)];
       this.corretta = rispCorretta !== undefined &&
                       this.risposta.padStart(4, '0') === rispCorretta;

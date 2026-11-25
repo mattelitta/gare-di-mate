@@ -53,7 +53,7 @@
     body[data-theme="light"] td, body[data-theme="light"] th { border: 1px solid #cbd5e1; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="h-screen flex flex-col">
 
 <!-- Header fisso -->
 <header class="flex items-center justify-between px-6 py-2 bg-slate-800 border-b border-slate-700 shrink-0">
@@ -66,7 +66,7 @@
 </header>
 
 <!-- Contenuto principale -->
-<main class="flex-1 overflow-hidden" id="main-content">
+<main class="flex-1 min-h-0 overflow-hidden" id="main-content">
   <div class="flex items-center justify-center h-full text-slate-500">Caricamento...</div>
 </main>
 
@@ -193,19 +193,23 @@ function rigaBarra({ label, sublabel, rank, barColor, pct, value, valueColor, se
     </div>`;
 }
 
+// --- OSCURAMENTO: nasconde classifica, elenco squadre e stato gara (rivelerebbero i punteggi) ---
+function schermataOscurata() {
+  const finita = state.status === 'ended';
+  return `<div class="flex items-center justify-center h-full">
+    <div class="text-center">
+      <div class="text-6xl text-slate-300 font-bold mb-5">${finita ? 'Gara terminata' : 'Classifica oscurata'}</div>
+      <div class="text-slate-500 text-2xl">
+        ${finita ? 'La classifica finale verrà svelata a breve' : 'La classifica sarà svelata al termine della gara'}
+      </div>
+      ${finita ? '' : `<div class="font-mono text-5xl font-bold text-slate-400 mt-6">${fmtTime(Math.max(0, state.remaining_seconds))}</div>`}
+    </div>
+  </div>`;
+}
+
 // --- RANKING ---
 function renderRanking() {
-  if (state.blackout_active && state.status !== 'ended') {
-    const rem = Math.max(0, state.remaining_seconds);
-    return `<div class="flex items-center justify-center h-full">
-      <div class="text-center">
-        <div class="text-8xl mb-6">🔒</div>
-        <div class="text-3xl text-slate-300 font-semibold mb-3">Classifica oscurata</div>
-        <div class="text-slate-500 text-lg">La classifica sarà visibile al termine della gara</div>
-        <div class="font-mono text-4xl font-bold text-slate-400 mt-4">${fmtTime(rem)}</div>
-      </div>
-    </div>`;
-  }
+  if (state.blackout_active) return schermataOscurata();
   const teams = state.teams;
   const maxScore = Math.max(...teams.map(t => t.total), 1);
   const nq = state.num_qualified;
@@ -235,6 +239,7 @@ function renderRanking() {
 
 // --- TEAM LIST ---
 function renderTeamList() {
+  if (state.blackout_active) return schermataOscurata();
   const teams = [...state.teams].sort((a, b) => a.number - b.number);
   const maxScore = Math.max(...teams.map(t => t.total), 1);
   const s = sc();
@@ -285,6 +290,7 @@ function renderProblemValues() {
 
 // --- COMPETITION STATUS ---
 function renderCompStatus() {
+  if (state.blackout_active) return schermataOscurata();
   const teams = [...state.teams].sort((a,b) => a.number - b.number);
   const probs = state.problems;
   const n = state.n;
@@ -361,12 +367,12 @@ function renderCompStatus() {
 
 // --- FINAL RANKING ---
 function renderFinalRanking() {
-  if (!state.final_locked) {
+  if (!state.final_ready) {
     return `<div class="flex items-center justify-center h-full text-slate-500 text-xl">
       Classifica finale non ancora disponibile.
     </div>`;
   }
-  const teams = state.teams;
+  const teams = state.final_ranking;  // fotografia calcolata dall'Admin, non la classifica del momento
   const nonGuests = teams.filter(t => !t.is_guest);
   const revealed = state.revealed_positions;
   const total = nonGuests.length;
@@ -379,7 +385,7 @@ function renderFinalRanking() {
 
   let html = `<div class="h-full overflow-y-auto px-8 py-4">
     <div class="max-w-3xl mx-auto">
-    <div class="font-bold text-slate-200 mb-3" style="font-size:${sc().titleFs}">🏆 Classifica Finale</div>
+    <div class="font-bold text-slate-200 mb-3" style="font-size:${sc().titleFs}">Classifica finale</div>
     <div class="space-y-3">`;
 
   for (let i = 0; i < total; i++) {
@@ -406,7 +412,7 @@ function renderFinalRanking() {
           <div class="text-slate-400 text-sm">${t.city}</div>
         </div>
         <span class="font-mono text-2xl font-bold text-slate-200">${Math.round(t.total)}</span>
-        ${isQualified ? '<span class="text-yellow-400 text-sm font-semibold ml-2">✓ qualif.</span>' : ''}
+        ${isQualified ? '<span class="text-yellow-400 text-sm font-semibold ml-2">qualificata</span>' : ''}
       </div>`;
     }
   }

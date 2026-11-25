@@ -4,11 +4,13 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from database import get_db
+import formato
 from models import Competition, Display
 from paths import TEMPLATES_DIR
 
 router = APIRouter()
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+formato.registra(templates)
 
 VIEWS = ["test", "ranking", "team_list", "problem_values", "competition_status", "final_ranking"]
 
@@ -107,9 +109,20 @@ async def regia_rivela(request: Request, comp_id: int, db: Session = Depends(get
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    num_teams = len([t for t in comp.teams if not t.is_guest])
+    num_teams = len([t for t in comp.final_ranking or [] if not t["is_guest"]])
     if comp.revealed_positions < num_teams:
         comp.revealed_positions += 1
+    db.commit()
+    return RedirectResponse(f"/regia/{comp_id}", status_code=303)
+
+
+@router.post("/{comp_id}/rivela-indietro")
+async def regia_rivela_indietro(request: Request, comp_id: int, db: Session = Depends(get_db)):
+    """Annulla l'ultima posizione rivelata (la nasconde di nuovo)."""
+    comp = db.get(Competition, comp_id)
+    if not comp:
+        raise HTTPException(status_code=404)
+    comp.revealed_positions = max(0, comp.revealed_positions - 1)
     db.commit()
     return RedirectResponse(f"/regia/{comp_id}", status_code=303)
 

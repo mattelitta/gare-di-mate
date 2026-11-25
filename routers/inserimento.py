@@ -1,4 +1,5 @@
 from datetime import datetime
+from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -31,15 +32,85 @@ async def inserimento_home(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("inserimento/home.html", {"request": request, "comps": comps})
 
 
+class InputError(ValueError):
+    """Dato inserito non valido: il messaggio viene mostrato nella pagina."""
+
+
+def _torna(url: str, errore: str) -> RedirectResponse:
+    sep = "&" if "?" in url else "?"
+    return RedirectResponse(f"{url}{sep}errore={quote(errore)}", status_code=303)
+
+
 def require_started(comp: Competition):
     if comp.status == "created":
-        raise HTTPException(status_code=409, detail="La gara non è ancora iniziata")
+        raise InputError("La gara non è ancora iniziata: l'invio si attiva quando parte.")
+    require_open(comp)
+
+
+def require_open(comp: Competition):
+    if comp.insertions_locked:
+        raise InputError("Gli inserimenti sono stati bloccati dall'Admin.")
+
+
+def _numero(valore: str, cosa: str) -> int:
+    valore = valore.strip()
+    if not valore:
+        raise InputError(f"Inserire il numero {cosa}.")
+    if not valore.isdigit():
+        raise InputError(f"Il numero {cosa} deve contenere solo cifre.")
+    return int(valore)
+
+
+def _team(db: Session, comp_id: int, team_number: str) -> Team:
+    n = _numero(team_number, "della squadra")
+    team = db.query(Team).filter_by(competition_id=comp_id, number=n).first()
+    if not team:
+        raise InputError(f"La squadra {n:02d} non esiste in questa gara.")
+    return team
+
+
+def _problem(db: Session, comp_id: int, problem_number: str) -> Problem:
+    n = _numero(problem_number, "del problema")
+    problem = db.query(Problem).filter_by(competition_id=comp_id, number=n).first()
+    if not problem:
+        raise InputError(f"Il problema {n:02d} non esiste in questa gara.")
+    return problem
+
+
+def _risposta(answer: str) -> str:
+    """Risposta a 4 cifre con zeri iniziali (es. "42" → "0042")."""
+    answer = answer.strip()
+    if not answer:
+        raise InputError("Inserire la risposta.")
+    if not answer.isdigit() or len(answer) > 4:
+        raise InputError("La risposta deve essere un numero da 0 a 9999 (solo cifre).")
+    return answer.zfill(4)
+
+
+def _stato(comp: Competition) -> dict:
+    """Stato della gara per la pagina di inserimento (aggiornata ogni 2 s)."""
+    teams = {t.id: t.number for t in comp.teams}
+    problems = {p.id: p.number for p in comp.problems}
+    return {
+        "status": comp.status,
+        "locked": comp.insertions_locked,
+        "elapsed": comp.elapsed_seconds(),
+        "duration": comp.duration_minutes * 60,
+        "jolly_seconds": comp.jolly_time_minutes * 60,
+        # numero squadra -> numero problema scelto come jolly
+        "jolly": {str(teams[jc.team_id]): problems[jc.problem_id]
+                  for jc in comp.jolly_choices if jc.team_id in teams and jc.problem_id in problems},
+    }
+
+
+def _problema_jolly_predefinito(comp: Competition) -> Problem | None:
+    """Il problema 01, o quello con il numero più basso se il problema 01 non esiste."""
+    return min(comp.problems, key=lambda p: (p.number != 1, p.number), default=None)
 
 
 @router.get("/{comp_id}/stato")
 async def inserimento_stato(comp_id: int, db: Session = Depends(get_db)):
-    """Usato dalla pagina di inserimento per attivare l'invio appena la gara parte."""
-    return {"status": get_comp_or_404(comp_id, db).status}
+    return _stato(get_comp_or_404(comp_id, db))
 
 
 @router.get("/{comp_id}", response_class=HTMLResponse)
@@ -47,20 +118,43 @@ async def inserimento_main(request: Request, comp_id: int, db: Session = Depends
     comp = get_comp_or_404(comp_id, db)
     teams = sorted(comp.teams, key=lambda t: t.number)
     problems = sorted(comp.problems, key=lambda p: p.number)
-    # Get jolly choices already made
-    jolly_map = {jc.team_id: jc.problem_id for jc in comp.jolly_choices}
-    elapsed_min = comp.elapsed_minutes()
-    jolly_expired = elapsed_min >= comp.jolly_time_minutes
+    default = _problema_jolly_predefinito(comp)
     return templates.TemplateResponse("inserimento/main.html", {
         "request": request,
         "comp": comp,
         "teams": teams,
         "problems": problems,
-        "jolly_map": jolly_map,
-        "jolly_expired": jolly_expired,
-        "elapsed_min": elapsed_min,
+        "stato": _stato(comp),
+        "squadre": [{"n": t.number, "nome": t.name} for t in teams],
+        "jolly_predefinito": default.number if default else None,
         "started": comp.status != "created",
     })
+
+
+@router.post("/{comp_id}/jolly-mancanti")
+async def inserimento_jolly_mancanti(request: Request, comp_id: int, db: Session = Depends(get_db)):
+    """Allo scadere del tempo dei jolly: assegna il problema predefinito a chi non ha scelto."""
+    comp = get_comp_or_404(comp_id, db)
+    problem = _problema_jolly_predefinito(comp)
+    try:
+        require_started(comp)
+        if comp.status != "ended" and comp.elapsed_seconds() < comp.jolly_time_minutes * 60:
+            raise InputError("Il tempo per scegliere i jolly non è ancora scaduto.")
+        if problem is None:
+            raise InputError("La gara non ha problemi.")
+    except InputError as e:
+        return _torna(f"/inserimento/{comp_id}", f"Jolly non assegnati. {e}")
+    con_jolly = {jc.team_id for jc in comp.jolly_choices}
+    mancanti = [t for t in comp.teams if t.id not in con_jolly]
+    for team in mancanti:
+        db.add(JollyChoice(competition_id=comp_id, team_id=team.id, problem_id=problem.id,
+                           game_seconds=comp.elapsed_seconds()))
+    db.commit()
+    state_cache.invalidate(comp_id)
+    esito = (f"Jolly sul problema {problem.number:02d} assegnato a {len(mancanti)} "
+             f"{'squadra' if len(mancanti) == 1 else 'squadre'}." if mancanti
+             else "Tutte le squadre avevano già un jolly.")
+    return RedirectResponse(f"/inserimento/{comp_id}?esito={quote(esito)}", status_code=303)
 
 
 @router.post("/{comp_id}/jolly")
@@ -72,11 +166,12 @@ async def inserimento_jolly(
     db: Session = Depends(get_db),
 ):
     comp = get_comp_or_404(comp_id, db)
-    require_started(comp)
-    team = db.query(Team).filter_by(competition_id=comp_id, number=int(team_number)).first()
-    problem = db.query(Problem).filter_by(competition_id=comp_id, number=int(problem_number)).first()
-    if not team or not problem:
-        raise HTTPException(status_code=400, detail="Squadra o problema non trovato")
+    try:
+        require_started(comp)
+        team = _team(db, comp_id, team_number)
+        problem = _problem(db, comp_id, problem_number)
+    except InputError as e:
+        return _torna(f"/inserimento/{comp_id}", f"Jolly non registrato. {e}")
 
     # Remove previous jolly for this team if any
     existing = db.query(JollyChoice).filter_by(competition_id=comp_id, team_id=team.id).first()
@@ -105,18 +200,19 @@ async def inserimento_soluzione(
     db: Session = Depends(get_db),
 ):
     comp = get_comp_or_404(comp_id, db)
-    require_started(comp)
-    team = db.query(Team).filter_by(competition_id=comp_id, number=int(team_number)).first()
-    problem = db.query(Problem).filter_by(competition_id=comp_id, number=int(problem_number)).first()
-    if not team or not problem:
-        raise HTTPException(status_code=400, detail="Squadra o problema non trovato")
-
-    answer = answer.strip().zfill(4)[:4]
+    try:
+        require_started(comp)
+        team = _team(db, comp_id, team_number)
+        problem = _problem(db, comp_id, problem_number)
+        answer = _risposta(answer)
+    except InputError as e:
+        return _torna(f"/inserimento/{comp_id}", f"Consegna non registrata. {e}")
     is_correct = answer == problem.answer
 
     is_post_game = comp.status == "ended"
     if is_post_game:
-        game_sec = comp.duration_minutes * 60.0
+        # Il momento in cui la gara è finita: la fine teorica, o prima se è stata terminata in anticipo.
+        game_sec = min(comp.duration_minutes * 60.0, comp.elapsed_seconds())
     else:
         game_sec = comp.elapsed_seconds()
 
@@ -137,7 +233,7 @@ async def inserimento_soluzione(
 
 def _consegne_url(comp_id: int, request: Request) -> str:
     """URL dello storico che conserva i filtri attivi (passati come query string)."""
-    query = request.url.query
+    query = _filtri(request)
     return f"/inserimento/{comp_id}/consegne" + (f"?{query}" if query else "")
 
 
@@ -186,7 +282,7 @@ async def inserimento_consegne(
         "f_squadra": squadra,
         "f_problema": problema,
         "f_mie": mie,
-        "query": request.url.query,
+        "query": _filtri(request),
     })
 
 
@@ -198,6 +294,10 @@ async def inserimento_elimina_consegna(
     sub = db.get(Submission, sub_id)
     if not sub or sub.competition_id != comp_id:
         raise HTTPException(status_code=404)
+    try:
+        require_open(comp)
+    except InputError as e:
+        return _torna(_consegne_url(comp_id, request), f"Consegna non eliminata. {e}")
     db.delete(sub)
     db.commit()
     state_cache.invalidate(comp_id)
@@ -220,8 +320,14 @@ async def inserimento_modifica_form(
         "sub": sub,
         "teams": teams,
         "problems": problems,
-        "query": request.url.query,
+        "query": _filtri(request),
     })
+
+
+def _filtri(request: Request) -> str:
+    """Query string dei filtri dello storico, senza l'eventuale messaggio d'errore.
+    Usata anche per lo storico stesso, così l'errore non resta nei link di modifica ed eliminazione."""
+    return urlencode([(k, v) for k, v in request.query_params.multi_items() if k != "errore"])
 
 
 @router.post("/{comp_id}/consegne/{sub_id}/modifica")
@@ -238,10 +344,19 @@ async def inserimento_modifica_consegna(
     sub = db.get(Submission, sub_id)
     if not sub or sub.competition_id != comp_id:
         raise HTTPException(status_code=404)
+    team = db.get(Team, team_id)
     problem = db.get(Problem, problem_id)
-    if not problem:
-        raise HTTPException(status_code=400)
-    answer = answer.strip().zfill(4)[:4]
+    try:
+        require_open(comp)
+        if not team or team.competition_id != comp_id:
+            raise InputError("La squadra scelta non esiste in questa gara.")
+        if not problem or problem.competition_id != comp_id:
+            raise InputError("Il problema scelto non esiste in questa gara.")
+        answer = _risposta(answer)
+    except InputError as e:
+        filtri = _filtri(request)
+        url = f"/inserimento/{comp_id}/consegne/{sub_id}/modifica" + (f"?{filtri}" if filtri else "")
+        return _torna(url, f"Modifica non salvata. {e}")
     sub.team_id = team_id
     sub.problem_id = problem_id
     sub.answer = answer

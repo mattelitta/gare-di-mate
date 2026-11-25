@@ -105,16 +105,19 @@ def make_legacy_db(path: Path, with_data=True):
         c.execute("INSERT INTO competitions (id, name, date, threshold_minute, blackout_minute, status, "
                   "initial_value, n, k, first_delivery_bonuses_json, full_bonuses_json, duration_minutes, "
                   "jolly_time_minutes, num_qualified, final_reveal_count, total_paused_seconds, "
-                  "revealed_positions, final_locked, display_theme, time_offset_seconds, created_at) VALUES "
+                  "revealed_positions, final_locked, display_theme, time_offset_seconds, insertions_locked, "
+                  "created_at) VALUES "
                   "(1, 'Vecchia gara', '2026-01-01', 60, 80, 'ended', 40, 2, 1, '[20]', '[50]', 90, 30, 0, 3, "
-                  "0, 0, 0, 'light', 0, CURRENT_TIMESTAMP)")
+                  "0, 0, 1, 'light', 0, 0, CURRENT_TIMESTAMP)")  # final_locked = 1: "bloccata" col vecchio sistema
         c.execute("INSERT INTO teams (id, competition_id, number, name, city, is_guest) VALUES (1, 1, 1, 'A', '', 0)")
         c.execute("INSERT INTO problems (id, competition_id, number, name, answer) VALUES (1, 1, 1, 'P1', '0042')")
         c.execute("INSERT INTO submissions (competition_id, team_id, problem_id, answer, is_correct, is_post_game, "
                   "game_seconds, submitted_at) VALUES (1, 1, 1, '0042', 1, 0, 120, CURRENT_TIMESTAMP)")
     for table, column in (("submissions", "device_id"), ("competitions", "time_offset_seconds"),
                           ("competitions", "last_alive_at"), ("competitions", "recovery_crash_at"),
-                          ("competitions", "recovery_downtime_seconds")):
+                          ("competitions", "recovery_downtime_seconds"), ("competitions", "insertions_locked"),
+                          ("competitions", "final_ranking_json"), ("competitions", "final_computed_at"),
+                          ("competitions", "blackout_manual"), ("competitions", "blackout_manual_at")):
         c.execute(f"ALTER TABLE {table} DROP COLUMN {column}")
     c.execute("DROP TABLE time_adjustments")
     c.execute("PRAGMA user_version = 0")

@@ -10,12 +10,13 @@
 </div>
 
 <!-- Classifica finale reveal -->
-{% if comp.status == 'ended' and comp.final_locked %}
+{% if comp.status == 'ended' and comp.final_ranking %}
 <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
   <h2 class="font-semibold text-purple-800 mb-3">🏆 Rivelazione classifica finale</h2>
   <p class="text-sm text-purple-700 mb-3">
     Posizioni rivelate: <strong>{{ comp.revealed_positions }}</strong>
-    su <strong>{{ comp.teams|selectattr('is_guest', 'false')|list|length }}</strong> squadre in gara.
+    su <strong>{{ comp.final_ranking|rejectattr('is_guest')|list|length }}</strong> squadre in gara
+    (classifica calcolata alle {{ ora_locale(comp.final_computed_at) }}).
   </p>
   <div class="flex gap-2">
     <form method="post" action="/regia/{{ comp.id }}/rivela">
@@ -23,11 +24,22 @@
         ▶ Rivela prossima posizione
       </button>
     </form>
+    <form method="post" action="/regia/{{ comp.id }}/rivela-indietro">
+      <button class="bg-white border border-purple-300 text-purple-800 hover:bg-purple-100 px-4 py-2 rounded text-sm
+                     disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+              {% if not comp.revealed_positions %}disabled{% endif %}>
+        ↶ Annulla ultima
+      </button>
+    </form>
     <form method="post" action="/regia/{{ comp.id }}/rivela-reset"
           onsubmit="return confirm('Azzerare la rivelazione?')">
       <button class="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded text-sm">Reset</button>
     </form>
   </div>
+</div>
+{% elif comp.status == 'ended' %}
+<div class="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4 text-sm text-purple-800">
+  🏆 La gara è terminata: per rivelare la classifica finale, calcolarla dalla pagina Admin della gara.
 </div>
 {% endif %}
 

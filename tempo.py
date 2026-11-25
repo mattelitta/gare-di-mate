@@ -64,8 +64,8 @@ def change_adjustment(comp: Competition, adj: TimeAdjustment, new_seconds: float
     Le consegne post-gara restano alla fine della gara. Solleva ValueError con un messaggio
     per l'utente se la correzione non è possibile.
     """
-    if comp.final_locked:
-        raise ValueError("La classifica finale è bloccata: gli avanzamenti non si possono più modificare.")
+    if comp.insertions_locked:
+        raise ValueError("Gli inserimenti sono bloccati: sbloccarli per modificare gli avanzamenti.")
     if new_seconds < 0:
         raise ValueError("Un avanzamento non può essere negativo.")
     delta = new_seconds - adj.seconds

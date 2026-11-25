@@ -6,7 +6,7 @@ Software di gestione per gare a squadre di matematica. Permette di amministrare 
 
 - **Admin** — creazione e gestione gare; squadre e problemi (nella pagina "Modifica parametri", per non toccarli per sbaglio durante la gara); bonus o penalizzazioni in punti; controllo stato (avvia / pausa / riprendi / termina) e avanzamento manuale del tempo di gara; accessibile solo dal dispositivo host
 - **Ripresa dopo un crash** — se il programma si chiude con una gara in corso, alla riapertura la gara riprende dal minuto raggiunto e un avviso propone di far avanzare il tempo della durata dell'interruzione (modificabile o ignorabile)
-- **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara (la pagina si può aprire già prima della partenza: l'invio si attiva da solo quando la gara inizia); storico consegne (più recenti in alto) modificabile e filtrabile per squadra, problema e dispositivo che le ha inserite, con gli avanzamenti del tempo al loro posto; ottimizzato per uso rapido da tablet (il cursore passa da solo al campo successivo: es. `04` `03` Invio)
+- **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara (la pagina si può aprire già prima della partenza: l'invio si attiva da solo quando la gara inizia); stato della gara e tempi alla fine e alla chiusura dei jolly sempre visibili; squadre senza jolly evidenziate in giallo negli ultimi 2 minuti e in rosso dopo la scadenza, con un tasto per assegnare loro il jolly sul problema 01; errori di inserimento segnalati nella pagina; storico consegne (più recenti in alto) modificabile e filtrabile per squadra, problema e dispositivo che le ha inserite, con gli avanzamenti del tempo al loro posto; ottimizzato per uso rapido da tablet (il cursore passa da solo al campo successivo: es. `04` `03` Invio)
 - **Regia** — controllo dei display in sala (scelta della vista, scala del testo), rivelazione progressiva della classifica finale
 - **Display** — viste in tempo reale aggiornate via polling: classifica, elenco squadre, valori problemi, stato gara, classifica finale
 
@@ -107,10 +107,13 @@ Cambiandola, tutti i dispositivi collegati dovranno rifare l'accesso.
    già aprire la pagina di inserimento (anche prima della partenza)
 4. L'**Inserimento** registra jolly (entro il tempo jolly) e soluzioni
 5. I **Display** mostrano classifica, valori e stato in tempo reale
-6. Al minuto di oscuramento la classifica viene nascosta al pubblico
+6. Al minuto di oscuramento la classifica (con elenco squadre e stato gara) viene nascosta al pubblico;
+   l'Admin può anche oscurarla o mostrarla a mano in qualsiasi momento, e vede il tempo mancante
+   alle scadenze (chiusura jolly, congelamento valori, oscuramento, fine gara)
 7. Al minuto soglia i valori dei problemi si congelano
 8. L'**Admin** termina la gara; l'**Inserimento** può continuare per consegne in ritardo
-9. L'**Admin** blocca gli inserimenti — la classifica finale è calcolata
+9. L'**Admin** calcola la classifica finale (si può ricalcolare quante volte serve, per esempio dopo
+   consegne in ritardo) e, quando serve, spunta "Inserimenti bloccati" (si può togliere)
 10. La **Regia** rivela le posizioni una alla volta dal basso verso l'alto
 
 ## Parametri di una gara
@@ -197,6 +200,9 @@ python tests/run.py --completa
 
 # Dettaglio di ogni controllo
 python tests/run.py -v
+
+# Solo i gruppi il cui nome contiene un testo (anche tra quelli lenti), es. i crash
+python tests/run.py -k crash
 ```
 
 Per simulare un dispositivo in rete serve un secondo indirizzo IPv4 del computer (per esempio

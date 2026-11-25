@@ -76,8 +76,10 @@ def compute_state(
 
     # Consegne ordinate per (game_seconds, submitted_at) — garantisce ordine corretto
     # anche per le consegne post-gara che hanno tutte lo stesso game_seconds
+    # Le consegne post-gara contano sempre: se la gara è stata terminata prima della fine teorica,
+    # il loro tempo (fine teorica, nei dati salvati prima della correzione) supera quello finale.
     submissions = sorted(
-        (s for s in comp.submissions if s.game_seconds <= at_seconds),
+        (s for s in comp.submissions if s.game_seconds <= at_seconds or s.is_post_game),
         key=lambda s: (s.game_seconds, s.submitted_at),
     )
 

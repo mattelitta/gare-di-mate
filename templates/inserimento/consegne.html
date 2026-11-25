@@ -6,6 +6,17 @@
   <a href="/inserimento/{{ comp.id }}" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">← Inserimento</a>
 </div>
 
+{% if request.query_params.get('errore') %}
+<div class="bg-red-100 border border-red-300 text-red-800 rounded-lg px-4 py-3 mb-3 font-medium">
+  ⚠️ {{ request.query_params.get('errore') }}
+</div>
+{% endif %}
+{% if comp.insertions_locked %}
+<div class="bg-red-50 border border-red-300 text-red-800 rounded-lg px-4 py-3 mb-3">
+  🔒 Gli inserimenti sono bloccati dall'Admin: le consegne non si possono modificare né eliminare.
+</div>
+{% endif %}
+
 <form method="get" class="bg-white rounded-lg shadow p-3 mb-3 flex flex-wrap items-end gap-4">
   <div>
     <label class="block text-xs font-medium text-gray-500 mb-1">Ordine</label>
@@ -110,6 +121,9 @@
           {% if sub.is_post_game %}<span class="text-orange-500 text-xs font-medium">post</span>{% endif %}
         </td>
         <td class="px-4 py-2">
+          {% if comp.insertions_locked %}
+          <span class="text-xs text-gray-400">bloccato</span>
+          {% else %}
           <div class="flex gap-2">
             <a href="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica{% if query %}?{{ query }}{% endif %}"
                class="text-blue-600 hover:underline text-xs">Modifica</a>
@@ -118,6 +132,7 @@
               <button class="text-red-500 hover:underline text-xs">Elimina</button>
             </form>
           </div>
+          {% endif %}
         </td>
       </tr>
       {% endif %}

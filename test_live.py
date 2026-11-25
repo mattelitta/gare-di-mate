@@ -199,16 +199,18 @@ print_state("Fine gara + post-gara")
 
 # ----------------------------------------------------------
 print(f"\n{B}&gt; CLASSIFICA FINALE{X}")
-check("Blocca classifica", post(f"/admin/gara/{cid}/blocca-finale"))
+check("Calcola classifica finale", post(f"/admin/gara/{cid}/calcola-finale"))
+check("Blocca inserimenti", post(f"/admin/gara/{cid}/blocco-inserimenti", {"bloccati": "1"}))
 time.sleep(0.5)
 s_final = get_json(f"/admin/api/gara/{cid}/stato")
-print_state("Classifica finale bloccata")
+print_state("Classifica finale calcolata, inserimenti bloccati")
 
 # ----------------------------------------------------------
 print(f"\n{B}&gt; VERIFICA DISPLAY API{X}")
 s_disp = get_json(f"/display/api/{cid}/schermo/{disp_id}/stato")
 if s_disp:
-    ok(f"Display API: view={s_disp.get('view')}  final_locked={s_disp.get('final_locked')}  teams={len(s_disp.get('teams',[]))}")
+    ok(f"Display API: view={s_disp.get('view')}  final_ready={s_disp.get('final_ready')}  "
+       f"classifica finale={len(s_disp.get('final_ranking', []))} squadre")
 else:
     fail("Display API non risponde")
 
@@ -259,11 +261,20 @@ beta  = next(t for t in non_guests if t['name'] == 'Beta')
 gamma = next(t for t in non_guests if t['name'] == 'Gamma')
 ok(f"Punteggi finali — Alpha:{round(alpha['total'])}  Beta:{round(beta['total'])}  Gamma:{round(gamma['total'])}")
 
-# 5. final_locked
-if s_final.get('final_locked'):
-    ok("final_locked = True")
+# 5. Classifica finale calcolata (e uguale nei display) e inserimenti bloccati
+if s_final.get('final_ready') and s_final.get('insertions_locked'):
+    ok("Classifica finale calcolata e inserimenti bloccati")
 else:
-    fail("final_locked non impostato!"); errori += 1
+    fail(f"final_ready={s_final.get('final_ready')}  insertions_locked={s_final.get('insertions_locked')}"); errori += 1
+if s_disp and [t['id'] for t in s_disp.get('final_ranking', [])] == [t['id'] for t in s_final['teams']]:
+    ok("La classifica finale dei display coincide con quella calcolata")
+else:
+    fail("La classifica finale dei display non coincide"); errori += 1
+post(f"/inserimento/{cid}/soluzione", {"team_number": "4", "problem_number": "3", "answer": "1024"})
+if get_json(f"/admin/api/gara/{cid}/stato")['teams'] == s_final['teams']:
+    ok("Con gli inserimenti bloccati una nuova consegna non cambia nulla")
+else:
+    fail("Inserimento accettato nonostante il blocco"); errori += 1
 
 # 6. Tutte le posizioni rivelate
 s_rev = get_json(f"/admin/api/gara/{cid}/stato")

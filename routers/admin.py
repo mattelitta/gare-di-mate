@@ -378,6 +378,8 @@ async def admin_termina(request: Request, comp_id: int, db: Session = Depends(ge
         comp.total_paused_seconds += (now - comp.paused_at).total_seconds()
     comp.status = "ended"
     comp.ended_at = now
+    comp.blackout_manual = None  # a fine gara la classifica si oscura comunque (poi si può mostrare a mano)
+    comp.blackout_manual_at = None
     db.commit()
     state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
@@ -533,17 +535,71 @@ async def admin_elimina_penalizzazione(
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
 
 
-# --- Lock final ranking ---
-@router.post("/gara/{comp_id}/blocca-finale")
-async def admin_blocca_finale(request: Request, comp_id: int, db: Session = Depends(get_db)):
+# --- Fine gara: classifica finale (ricalcolabile) e blocco degli inserimenti ---
+def _torna_alla_gara(comp_id: int, errore: str | None = None, esito: str | None = None) -> RedirectResponse:
+    query = f"?errore={quote(errore)}" if errore else (f"?esito={quote(esito)}" if esito else "")
+    return RedirectResponse(f"/admin/gara/{comp_id}{query}", status_code=303)
+
+
+@router.post("/gara/{comp_id}/calcola-finale")
+async def admin_calcola_finale(request: Request, comp_id: int, db: Session = Depends(get_db)):
+    """Salva la classifica di questo momento come classifica finale (si può ripetere)."""
+    require_localhost(request)
+    from engine import compute_state, rank_teams
+    comp = load_comp_full(comp_id, db)
+    if not comp:
+        raise HTTPException(status_code=404)
+    if comp.status != "ended":
+        return _torna_alla_gara(comp_id, errore="La classifica finale si calcola a gara terminata.")
+    _, team_scores = compute_state(comp)
+    comp.final_ranking_json = json.dumps([
+        {"id": ts.team_id, "number": ts.number, "name": ts.name, "city": ts.city,
+         "is_guest": ts.is_guest, "total": ts.total}
+        for ts in rank_teams(team_scores, comp)
+    ])
+    ricalcolo = comp.final_computed_at is not None
+    comp.final_computed_at = datetime.utcnow()
+    rivelazione_azzerata = comp.revealed_positions > 0
+    comp.revealed_positions = 0  # l'ordine può essere cambiato: la rivelazione riparte da capo
+    db.commit()
+    state_cache.invalidate(comp_id)
+    esito = "Classifica finale ricalcolata." if ricalcolo else "Classifica finale calcolata."
+    if rivelazione_azzerata:
+        esito += " La rivelazione ripartirà dall'inizio."
+    return _torna_alla_gara(comp_id, esito=esito)
+
+
+@router.post("/gara/{comp_id}/oscuramento")
+async def admin_oscuramento(
+    request: Request, comp_id: int, oscurata: str = Form(""), db: Session = Depends(get_db),
+):
+    """Oscura o mostra a mano la classifica dei display (gli scatti automatici successivi prevalgono)."""
     require_localhost(request)
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    comp.final_locked = True
+    comp.blackout_manual = oscurata == "1"
+    comp.blackout_manual_at = comp.elapsed_seconds()
     db.commit()
-    state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
+    return _torna_alla_gara(comp_id, esito="Classifica oscurata nei display." if comp.blackout_manual
+                            else "Classifica di nuovo visibile nei display.")
+
+
+@router.post("/gara/{comp_id}/blocco-inserimenti")
+async def admin_blocco_inserimenti(
+    request: Request, comp_id: int, bloccati: str = Form(""), db: Session = Depends(get_db),
+):
+    """Spunta a gara terminata: blocca (o sblocca) soluzioni, jolly e modifiche dello storico."""
+    require_localhost(request)
+    comp = db.get(Competition, comp_id)
+    if not comp:
+        raise HTTPException(status_code=404)
+    if comp.status != "ended":
+        return _torna_alla_gara(comp_id, errore="Gli inserimenti si possono bloccare a gara terminata.")
+    comp.insertions_locked = bloccati == "1"
+    db.commit()
+    return _torna_alla_gara(comp_id, esito="Inserimenti bloccati." if comp.insertions_locked
+                            else "Inserimenti di nuovo aperti.")
 
 
 # --- API: current state for JS polling ---
@@ -566,7 +622,8 @@ async def api_stato(request: Request, comp_id: int, db: Session = Depends(get_db
         "status": comp.status,
         "elapsed_seconds": comp.elapsed_seconds(),
         "duration_seconds": comp.duration_minutes * 60,
-        "final_locked": comp.final_locked,
+        "insertions_locked": comp.insertions_locked,
+        "final_ready": comp.final_ranking_json is not None,
         "revealed_positions": comp.revealed_positions,
         "teams": [
             {

@@ -3,6 +3,7 @@
     py tests/run.py              suite rapida (uso quotidiano, meno di un minuto)
     py tests/run.py --completa   suite completa (prima di una release: crash, --migra, gara di 2 minuti)
     py tests/run.py -v           mostra il dettaglio di ogni controllo
+    py tests/run.py -k crash     solo i gruppi il cui nome o file contiene "crash" (anche tra i lenti)
 
 Per simulare un dispositivo in rete serve un secondo indirizzo IPv4 del computer (es. una VPN
 come ZeroTier); se manca, quei controlli vengono saltati. Si può indicarlo con GDM_REMOTE_IP.
@@ -28,6 +29,10 @@ TESTS = [
     ("Migrazioni del database", "tests/test_migrazioni.py", False, True),
     ("Accesso dei dispositivi", "tests/test_accesso.py", True, True),
     ("Storico consegne", "tests/test_consegne.py", True, True),
+    ("Inserimenti non validi", "tests/test_input.py", True, True),
+    ("Stato gara e jolly", "tests/test_jolly.py", True, True),
+    ("Fine gara: classifica e blocco", "tests/test_finale.py", True, True),
+    ("Oscuramento e scadenze", "tests/test_oscuramento.py", True, True),
     ("Pagine admin e inserimento", "tests/test_admin.py", True, True),
     ("Avanzamenti del tempo", "tests/test_avanzamenti.py", False, True),
     ("Crash e avanzamento manuale", "tests/test_crash.py", False, False),
@@ -118,16 +123,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--completa", action="store_true", help="esegue anche i test lenti")
     parser.add_argument("-v", "--verbose", action="store_true", help="mostra ogni controllo")
+    parser.add_argument("-k", metavar="TESTO", help="solo i gruppi il cui nome o file contiene TESTO")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
 
-    selected = [t for t in TESTS if args.completa or t[3]]
+    if args.k:
+        selected = [t for t in TESTS if args.k.lower() in (t[0] + t[1]).lower()]
+    else:
+        selected = [t for t in TESTS if args.completa or t[3]]
     app = prepare_copy()
     port = free_port()
     remote_ip = secondary_ip()
     env = {**os.environ, "GDM_APP": str(app), "GDM_PORT": str(port), "GDM_REMOTE_IP": remote_ip,
            "GDM_BASE": f"http://127.0.0.1:{port}", "PYTHONIOENCODING": "utf-8"}
-    print(f"Suite {'completa' if args.completa else 'rapida'}: {len(selected)} gruppi di test")
+    nome = f"filtrata '{args.k}'" if args.k else ("completa" if args.completa else "rapida")
+    print(f"Suite {nome}: {len(selected)} gruppi di test")
     print(f"Copia di prova: {app}  (porta {port}"
           + (f", dispositivo remoto simulato da {remote_ip})" if remote_ip else ", nessun IP secondario: controlli remoti saltati)"))
     print()
@@ -161,7 +171,8 @@ def main():
             print(f"     {line}")
         if args.verbose or not ok:
             for line in output.splitlines():
-                if args.verbose or line.startswith("FAIL") or "Traceback" in line or "Error" in line:
+                if (args.verbose or line.startswith("FAIL") or "[!!]" in line
+                        or "Traceback" in line or "Error" in line):
                     print(f"     {line}")
 
     print(f"\n{'Tutti i test superati' if not failures else f'{failures} gruppi con errori'}"

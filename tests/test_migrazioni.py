@@ -52,6 +52,10 @@ v, cols, counts = info(p)
 check(f"database 1.0: schema {N}, colonne aggiunte",
       v == N and "device_id" in cols["submissions"] and "time_offset_seconds" in cols["competitions"])
 check("database 1.0: dati conservati", counts == counts0)
+c = sqlite3.connect(p)
+check("database 1.0: la gara bloccata col vecchio sistema ha gli inserimenti bloccati",
+      c.execute("SELECT insertions_locked, final_ranking_json FROM competitions").fetchone() == (1, None))
+c.close()
 check("database 1.0: un backup identico all'originale",
       len(backups()) == 1 and info(backups()[0])[0] == 0 and info(backups()[0])[2] == counts0)
 check("secondo avvio: 'invariato', nessun nuovo backup", run(p) == "invariato" and len(backups()) == 1)
@@ -101,8 +105,8 @@ c = sqlite3.connect(p)
 c.execute("INSERT INTO competitions (name, date, threshold_minute, blackout_minute, status, time_offset_seconds, "
           "initial_value, n, k, first_delivery_bonuses_json, full_bonuses_json, duration_minutes, jolly_time_minutes, "
           "num_qualified, final_reveal_count, total_paused_seconds, revealed_positions, final_locked, display_theme, "
-          "created_at) VALUES ('X', '2026-01-01', 60, 80, 'running', 120, 40, 2, 1, '[]', '[]', 90, 30, 0, 3, 0, 0, 0, "
-          "'light', CURRENT_TIMESTAMP)")
+          "insertions_locked, created_at) VALUES ('X', '2026-01-01', 60, 80, 'running', 120, 40, 2, 1, '[]', '[]', "
+          "90, 30, 0, 3, 0, 0, 0, 'light', 0, CURRENT_TIMESTAMP)")
 c.execute("PRAGMA user_version = 4")
 c.commit()
 c.close()

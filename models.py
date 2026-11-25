@@ -26,6 +26,9 @@ class Competition(Base):
     jolly_time_minutes: Mapped[int] = mapped_column(Integer, default=30)
     threshold_minute: Mapped[int] = mapped_column(Integer)  # values stop growing after this many minutes from start
     blackout_minute: Mapped[int] = mapped_column(Integer)   # ranking hidden after this many minutes from start
+    # Oscuramento impostato a mano dall'admin (None = automatico) e tempo di gara in cui è stato impostato.
+    blackout_manual: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    blackout_manual_at: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Classification
     num_qualified: Mapped[int] = mapped_column(Integer, default=0)
@@ -49,7 +52,14 @@ class Competition(Base):
 
     # Final ranking reveal state
     revealed_positions: Mapped[int] = mapped_column(Integer, default=0)
-    final_locked: Mapped[bool] = mapped_column(Boolean, default=False)  # True when insertions closed
+    # A gara terminata: blocco degli inserimenti (attivabile e disattivabile) e "fotografia" della
+    # classifica finale, ricalcolabile; è quella mostrata dai display e rivelata dalla regia.
+    insertions_locked: Mapped[bool] = mapped_column(Boolean, default=False)
+    final_ranking_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    final_computed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Non più usata (sostituita dai due campi sopra), ma resta mappata: nei database esistenti
+    # è NOT NULL senza default, e senza mappatura la creazione di una gara fallirebbe.
+    final_locked: Mapped[bool] = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
@@ -69,6 +79,11 @@ class Competition(Base):
     @first_delivery_bonuses.setter
     def first_delivery_bonuses(self, value: list[int]):
         self.first_delivery_bonuses_json = json.dumps(value)
+
+    @property
+    def final_ranking(self) -> list[dict] | None:
+        """Classifica finale calcolata: [{id, number, name, city, is_guest, total}] in ordine."""
+        return json.loads(self.final_ranking_json) if self.final_ranking_json else None
 
     @property
     def full_bonuses(self) -> list[int]:
@@ -93,6 +108,26 @@ class Competition(Base):
 
     def elapsed_minutes(self) -> float:
         return self.elapsed_seconds() / 60.0
+
+    def blackout_auto(self) -> bool:
+        """Oscuramento automatico: dal minuto di oscuramento e sempre a gara terminata."""
+        return self.status == "ended" or (
+            self.status in ("running", "paused") and self.elapsed_seconds() >= self.blackout_minute * 60
+        )
+
+    def blackout_active(self) -> bool:
+        """Classifica (ed elenco squadre, stato gara) nascosta nei display.
+
+        L'admin può oscurare o mostrare a mano; gli scatti automatici successivi prevalgono:
+        il minuto di oscuramento raggiunto dopo l'impostazione manuale, e "Termina" (che azzera
+        l'impostazione manuale).
+        """
+        if self.blackout_manual is None:
+            return self.blackout_auto()
+        soglia = self.blackout_minute * 60
+        if (self.blackout_manual_at or 0.0) < soglia <= self.elapsed_seconds() and self.status != "created":
+            return True
+        return self.blackout_manual
 
 
 class Team(Base):

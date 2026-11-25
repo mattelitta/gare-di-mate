@@ -3,6 +3,11 @@
 {% block content %}
 <div class="max-w-md mx-auto">
   <h1 class="text-xl font-bold mb-6">Modifica consegna</h1>
+  {% if request.query_params.get('errore') %}
+  <div class="bg-red-100 border border-red-300 text-red-800 rounded-lg px-4 py-3 mb-4 font-medium">
+    ⚠️ {{ request.query_params.get('errore') }}
+  </div>
+  {% endif %}
   <div class="bg-white rounded-lg shadow p-6">
     <form method="post" action="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica{% if query %}?{{ query }}{% endif %}" class="space-y-4">
       <div>
