@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -7,13 +8,37 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 import auth
+import formato
+import tempo
 from cache import state_cache
 from database import get_db, load_comp_full
-from models import Competition, Display, JollyChoice, Penalty, Problem, Submission, Team
+from models import Competition, Display, JollyChoice, Penalty, Problem, Submission, Team, TimeAdjustment
 from paths import TEMPLATES_DIR
 
 router = APIRouter()
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+
+formato.registra(templates)
+templates.env.globals["avanzamento_massimo"] = tempo.max_advance
+
+
+def _secondi(minutes: str, seconds: str) -> int:
+    """Minuti e secondi dai form; campi vuoti = 0. ValueError con messaggio se non validi."""
+    try:
+        m = int(minutes or 0)
+        s = int(seconds or 0)
+    except ValueError:
+        raise ValueError("Minuti e secondi devono essere numeri interi.")
+    if m < 0 or s < 0:
+        raise ValueError("Minuti e secondi non possono essere negativi.")
+    return m * 60 + s
+
+
+def _torna_al_tempo(comp_id: int, errore: str | None = None) -> RedirectResponse:
+    """Torna al riquadro del tempo nella pagina della gara, con l'eventuale errore da mostrare."""
+    query = f"?errore={quote(errore)}" if errore else ""
+    return RedirectResponse(f"/admin/gara/{comp_id}{query}#tempo", status_code=303)
 
 
 def require_localhost(request: Request):
@@ -229,15 +254,104 @@ async def admin_avvia(request: Request, comp_id: int, db: Session = Depends(get_
     if comp.status == "created":
         comp.started_at = now
         comp.total_paused_seconds = 0.0
+        comp.time_offset_seconds = 0.0
     else:
         # resume from pause
         paused_duration = (now - comp.paused_at).total_seconds()
         comp.total_paused_seconds += paused_duration
         comp.paused_at = None
     comp.status = "running"
+    comp.last_alive_at = now
     db.commit()
     state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)
+
+
+@router.post("/gara/{comp_id}/avanza-tempo")
+async def admin_avanza_tempo(
+    request: Request, comp_id: int, minutes: str = Form(""), seconds: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    require_localhost(request)
+    comp = db.get(Competition, comp_id)
+    if not comp:
+        raise HTTPException(status_code=404)
+    if comp.status not in ("running", "paused"):
+        return _torna_al_tempo(comp_id, "Il tempo si può avanzare solo a gara in corso o in pausa.")
+    try:
+        delta = _secondi(minutes, seconds)
+    except ValueError as e:
+        return _torna_al_tempo(comp_id, str(e))
+    if delta <= 0:
+        return _torna_al_tempo(comp_id, "Indicare di quanti minuti e secondi avanzare.")
+    tempo.advance(comp, delta)
+    db.commit()
+    state_cache.invalidate(comp_id)
+    return _torna_al_tempo(comp_id)
+
+
+@router.post("/gara/{comp_id}/ripresa")
+async def admin_ripresa(
+    request: Request, comp_id: int, azione: str = Form(...),
+    minutes: str = Form(""), seconds: str = Form(""), torna: str = Form("gara"),
+    db: Session = Depends(get_db),
+):
+    """Risposta al popup mostrato dopo una chiusura del programma a gara in corso."""
+    require_localhost(request)
+    comp = db.get(Competition, comp_id)
+    if not comp:
+        raise HTTPException(status_code=404)
+    if azione == "avanza" and comp.status in ("running", "paused"):
+        try:
+            tempo.advance(comp, _secondi(minutes, seconds), reason="ripresa")
+        except ValueError as e:
+            return _torna_al_tempo(comp_id, str(e))  # il popup resta: si può riprovare
+    tempo.clear_recovery(comp)
+    db.commit()
+    state_cache.invalidate(comp_id)
+    return RedirectResponse("/admin/" if torna == "home" else f"/admin/gara/{comp_id}", status_code=303)
+
+
+def _get_adjustment(db: Session, comp_id: int, adj_id: int) -> tuple[Competition, TimeAdjustment]:
+    comp = db.get(Competition, comp_id)
+    adj = db.get(TimeAdjustment, adj_id)
+    if not comp or not adj or adj.competition_id != comp_id:
+        raise HTTPException(status_code=404)
+    return comp, adj
+
+
+@router.post("/gara/{comp_id}/avanzamenti/{adj_id}/modifica")
+async def admin_modifica_avanzamento(
+    request: Request, comp_id: int, adj_id: int, minutes: str = Form(""), seconds: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    require_localhost(request)
+    comp, adj = _get_adjustment(db, comp_id, adj_id)
+    try:
+        new_seconds = _secondi(minutes, seconds)
+        if new_seconds <= 0:
+            raise ValueError("Per annullare un avanzamento usare \"Elimina\".")
+        tempo.change_adjustment(comp, adj, new_seconds)
+    except ValueError as e:
+        return _torna_al_tempo(comp_id, str(e))
+    db.commit()
+    state_cache.invalidate(comp_id)
+    return _torna_al_tempo(comp_id)
+
+
+@router.post("/gara/{comp_id}/avanzamenti/{adj_id}/elimina")
+async def admin_elimina_avanzamento(
+    request: Request, comp_id: int, adj_id: int, db: Session = Depends(get_db),
+):
+    require_localhost(request)
+    comp, adj = _get_adjustment(db, comp_id, adj_id)
+    try:
+        tempo.remove_adjustment(comp, adj)
+    except ValueError as e:
+        return _torna_al_tempo(comp_id, str(e))
+    db.commit()
+    state_cache.invalidate(comp_id)
+    return _torna_al_tempo(comp_id)
 
 
 @router.post("/gara/{comp_id}/pausa")

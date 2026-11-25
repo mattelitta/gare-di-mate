@@ -24,7 +24,7 @@ sys.stdout.reconfigure(encoding='utf-8')
 
 import urllib.request, urllib.parse, urllib.error
 
-BASE = "http://localhost:8000"
+BASE = os.environ.get("GDM_BASE", "http://localhost:8000")  # tests/run.py usa una porta libera
 _t0 = None
 
 # ANSI colors
@@ -273,21 +273,30 @@ else:
     rev = s_rev.get('revealed_positions', '?') if s_rev else '?'
     fail(f"Solo {rev} posizioni rivelate su {non_guests_count}"); errori += 1
 
-# 7. Verifica valori P1 congelati dopo soglia (max time_bonus = 60/60 = 1 min)
+# 7. Verifica valori P1 congelati dopo soglia
 probs_final = {p['number']: p for p in s_final['problems']}
 p1_val = probs_final[1]['value']
-# P1: initial_value=20, time_bonus≤1 (bloccato dopo n=2 ≈9s), error_bonus=+2 (1 errore Alpha pre-soglia, k=1)
-# Atteso: ~20 + 9/60 + 2 = ~22.15
-expected_p1 = 20 + 9/60 + 2  # approssimato
-if abs(p1_val - expected_p1) < 0.5:
-    ok(f"Valore P1 ≈ {p1_val:.2f}  (atteso ≈ {expected_p1:.2f}) — time_bonus bloccato a n=2 ✓")
+# P1: initial_value=20, time_bonus = minuti interi prima del blocco (n=2 raggiunto a ≈9s → 0),
+# error_bonus=+2 (1 errore Alpha pre-soglia, k=1). Atteso: 20 + 0 + 2 = 22, intero.
+expected_p1 = 22
+if p1_val == expected_p1 and isinstance(p1_val, int):
+    ok(f"Valore P1 = {p1_val}  (atteso {expected_p1}, intero) — time_bonus bloccato a n=2 ✓")
 else:
-    fail(f"Valore P1 = {p1_val:.2f}  (atteso ≈ {expected_p1:.2f})"); errori += 1
+    fail(f"Valore P1 = {p1_val}  (atteso {expected_p1}, intero)"); errori += 1
+
+# 8. Tutti i valori e i punteggi sono interi
+non_interi = [p['value'] for p in s_final['problems'] if not isinstance(p['value'], int)]
+non_interi += [t['total'] for t in s_final['teams'] if not isinstance(t['total'], int)]
+if not non_interi:
+    ok("Valori dei problemi e punteggi delle squadre tutti interi")
+else:
+    fail(f"Valori o punteggi non interi: {non_interi}"); errori += 1
 
 print(f"\n{'='*56}")
 if errori == 0:
     print(f"{G}{B}  TUTTI I TEST SUPERATI ✓{X}")
 else:
     print(f"{R}{B}  {errori} ERRORE/I RILEVATO/I ✗{X}")
-print(f"  Gara ispezionabile: http://localhost:8000/admin/gara/{cid}")
+print(f"  Gara ispezionabile: {BASE}/admin/gara/{cid}")
 print(f"{'='*56}\n")
+sys.exit(1 if errori else 0)

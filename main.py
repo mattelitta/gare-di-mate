@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 from urllib.parse import quote
 
@@ -10,14 +11,25 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 import auth
+import tempo
 from database import get_db, init_db, SessionLocal
 from paths import STATIC_DIR, TEMPLATES_DIR
 from routers import admin, inserimento, regia, display
+
+log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    # Prima del ciclo (che riscrive il battito): le gare rimaste in corso riprendono dal minuto raggiunto.
+    db = SessionLocal()
+    try:
+        recovered = tempo.recover_after_restart(db)
+        if recovered:
+            log.warning("Riprese %s gare rimaste in corso alla chiusura del programma", recovered)
+    finally:
+        db.close()
     asyncio.create_task(broadcast_loop())
     yield
 
@@ -111,15 +123,20 @@ async def esci():
 
 
 async def broadcast_loop():
-    """Aggiorna la cache ogni secondo per le gare in corso."""
+    """Ogni secondo: battito del server e aggiornamento della cache per le gare in corso.
+
+    Non deve mai fermarsi: un battito fermo con il server acceso verrebbe scambiato
+    per una chiusura al riavvio successivo.
+    """
+    from models import Competition
+    from database import load_comp_full
+    from engine import compute_state
+    from cache import state_cache
     while True:
         await asyncio.sleep(1)
         db = SessionLocal()
         try:
-            from models import Competition
-            from database import load_comp_full
-            from engine import compute_state
-            from cache import state_cache
+            tempo.heartbeat(db)
             comp_ids = [
                 c.id for c in db.query(Competition.id)
                 .filter(Competition.status == "running").all()
@@ -129,6 +146,8 @@ async def broadcast_loop():
                 if comp:
                     prob_states, team_scores = compute_state(comp)
                     state_cache.set(comp_id, (prob_states, team_scores))
+        except Exception:
+            log.exception("Errore nel ciclo di aggiornamento (si riprova tra un secondo)")
         finally:
             db.close()
 

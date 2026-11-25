@@ -7,11 +7,13 @@ from sqlalchemy.orm import Session
 
 from cache import state_cache
 from database import get_db
+import formato
 from models import Competition, JollyChoice, Problem, Submission, Team
 from paths import TEMPLATES_DIR
 
 router = APIRouter()
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+formato.registra(templates)
 
 
 def get_comp_or_404(comp_id: int, db: Session) -> Competition:
@@ -146,23 +148,36 @@ async def inserimento_consegne(
     squadra: str = "",
     problema: str = "",
     mie: bool = False,
+    ordine: str = "",
     db: Session = Depends(get_db),
 ):
     comp = get_comp_or_404(comp_id, db)
     # Le select inviano "" per "tutte": i filtri vuoti o non numerici sono ignorati.
     squadra = int(squadra) if squadra.isdigit() else None
     problema = int(problema) if problema.isdigit() else None
+    filtri_attivi = squadra is not None or problema is not None or mie
     ordered = sorted(comp.submissions, key=lambda s: (s.game_seconds, s.submitted_at))
-    rows = [
-        (idx, s) for idx, s in enumerate(ordered, start=1)
+    # Voci: (chiave di ordinamento, tipo, numero cronologico, oggetto). A parità di tempo di gara
+    # le consegne vengono prima dell'avanzamento fatto in quello stesso istante.
+    voci = [
+        ((s.game_seconds, 0, s.submitted_at), "consegna", idx, s)
+        for idx, s in enumerate(ordered, start=1)
         if (squadra is None or s.team_id == squadra)
         and (problema is None or s.problem_id == problema)
         and (not mie or s.device_id == request.state.device_id)
     ]
+    shown = len(voci)
+    if not filtri_attivi:  # gli avanzamenti non riguardano una squadra, un problema o un dispositivo
+        voci += [((a.game_seconds_at, 1, a.created_at), "avanzamento", None, a) for a in comp.time_adjustments]
+    crescente = ordine == "crescente"
+    voci.sort(key=lambda v: v[0], reverse=not crescente)
     return templates.TemplateResponse("inserimento/consegne.html", {
         "request": request,
         "comp": comp,
-        "rows": rows,
+        "voci": [v[1:] for v in voci],
+        "shown": shown,
+        "crescente": crescente,
+        "filtri_attivi": filtri_attivi,
         "total": len(ordered),
         "teams": {t.id: t for t in comp.teams},
         "problems": {p.id: p for p in comp.problems},

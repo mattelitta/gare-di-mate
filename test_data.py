@@ -206,10 +206,13 @@ print("\n--- Valori problemi (attesi) ---")
 # P4: nessun risolutore → time=45; errori: sq3+sq4=2 → err=4; 40+45+4=89
 expected_values = {1: 62, 2: 79, 3: 87, 4: 89}
 
+all_ok = True
 for pid, ps in sorted(prob_states.items(), key=lambda x: x[1].number):
     exp = expected_values[ps.number]
-    match = "OK" if abs(ps.value - exp) < 0.1 else f"ERRORE (atteso {exp})"
-    print(f"  P{ps.number} {ps.name}: {ps.value:.1f} {match}")
+    match = "OK" if ps.value == exp else f"ERRORE (atteso {exp})"
+    if "ERRORE" in match:
+        all_ok = False
+    print(f"  P{ps.number} {ps.name}: {ps.value} {match}")
 
 print("\n--- Punteggi squadre ---")
 print(f"  Punteggio iniziale: 10 × 4 problemi = 40")
@@ -277,11 +280,10 @@ expected_totals = {
 }
 
 ranked = rank_teams(team_scores, comp_full)
-all_ok = True
 for ts in ranked:
     exp = expected_totals.get(ts.name, "?")
     if isinstance(exp, int):
-        match = "OK" if abs(ts.total - exp) < 0.1 else f"ERRORE (atteso {exp})"
+        match = "OK" if ts.total == exp else f"ERRORE (atteso {exp})"
         if "ERRORE" in match:
             all_ok = False
     else:
@@ -305,3 +307,4 @@ else:
 
 db.close()
 print(f"\nGara ID={comp.id} disponibile su http://localhost:8000/admin/gara/{comp.id}")
+sys.exit(0 if all_ok else 1)

@@ -3,7 +3,7 @@ Core scoring engine. All scores are computed dynamically from raw events.
 
 Key rules:
 - Problem value = initial_value + time_bonus + error_bonus (up to threshold_minute)
-- Time bonus: +1/min while fewer than n teams solved it
+- Time bonus: +1 per completed minute while fewer than n teams solved it (all scores are integers)
 - Error bonus: +2 per error, only first k errors per team count
 - After threshold_minute: value frozen
 - Correct answer: +current_value (dynamic — grows with problem)
@@ -30,7 +30,7 @@ class ProblemState:
     problem_id: int
     number: int
     name: str
-    value: float
+    value: int
     solvers: list[int]          # team_ids in ordine di soluzione corretta
     error_counts: dict[int, int] = field(default_factory=dict)  # team_id -> totale errori
 
@@ -42,8 +42,8 @@ class TeamScore:
     name: str
     city: str
     is_guest: bool
-    total: float
-    problem_contributions: dict[int, float]  # problem_id -> contributo netto
+    total: int
+    problem_contributions: dict[int, int]    # problem_id -> contributo netto
     problem_errors: dict[int, int]           # problem_id -> num errori
     problem_solved: dict[int, bool]          # problem_id -> risolto?
     jolly_problem_id: int | None
@@ -122,13 +122,14 @@ def compute_state(
 
     # --- Calcolo valore problema (O(1) per problema grazie alla precomputazione) ---
 
-    def problem_value(pid: int) -> float:
+    def problem_value(pid: int) -> int:
         effective_t = min(at_seconds, threshold_seconds)
 
         # Il bonus al minuto si blocca al minuto soglia O quando l'n-esima squadra risolve
         nth_t = nth_solver_time[pid]
         time_t = min(effective_t, nth_t) if nth_t is not None else effective_t
-        time_bonus = time_t / 60.0
+        # +1 per ogni minuto intero compiuto: valori e punteggi sono sempre interi.
+        time_bonus = int(time_t // 60)
 
         # Bonus errori: primi k errori pre-soglia per squadra, ognuno vale +2
         error_bonus = sum(
@@ -202,7 +203,7 @@ def compute_state(
 
     for tid, team in teams.items():
         jolly_pid = jolly_map.get(tid)
-        prob_contributions: dict[int, float] = {}
+        prob_contributions: dict[int, int] = {}
         prob_errors_out: dict[int, int] = {}
         prob_solved_out: dict[int, bool] = {}
 

@@ -4,8 +4,9 @@ Software di gestione per gare a squadre di matematica. Permette di amministrare 
 
 ## Funzionalità
 
-- **Admin** — creazione e gestione gare; squadre e problemi (nella pagina "Modifica parametri", per non toccarli per sbaglio durante la gara); bonus o penalizzazioni in punti; controllo stato (avvia / pausa / riprendi / termina); accessibile solo dal dispositivo host
-- **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara (la pagina si può aprire già prima della partenza: l'invio si attiva da solo quando la gara inizia); storico consegne modificabile e filtrabile per squadra, problema e dispositivo che le ha inserite; ottimizzato per uso rapido da tablet (il cursore passa da solo al campo successivo: es. `04` `03` Invio)
+- **Admin** — creazione e gestione gare; squadre e problemi (nella pagina "Modifica parametri", per non toccarli per sbaglio durante la gara); bonus o penalizzazioni in punti; controllo stato (avvia / pausa / riprendi / termina) e avanzamento manuale del tempo di gara; accessibile solo dal dispositivo host
+- **Ripresa dopo un crash** — se il programma si chiude con una gara in corso, alla riapertura la gara riprende dal minuto raggiunto e un avviso propone di far avanzare il tempo della durata dell'interruzione (modificabile o ignorabile)
+- **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara (la pagina si può aprire già prima della partenza: l'invio si attiva da solo quando la gara inizia); storico consegne (più recenti in alto) modificabile e filtrabile per squadra, problema e dispositivo che le ha inserite, con gli avanzamenti del tempo al loro posto; ottimizzato per uso rapido da tablet (il cursore passa da solo al campo successivo: es. `04` `03` Invio)
 - **Regia** — controllo dei display in sala (scelta della vista, scala del testo), rivelazione progressiva della classifica finale
 - **Display** — viste in tempo reale aggiornate via polling: classifica, elenco squadre, valori problemi, stato gara, classifica finale
 
@@ -49,9 +50,10 @@ stessa cartella `Documenti\Gare di Mate`.
 Serve un PC Windows con Python, PyInstaller (`py -m pip install pyinstaller`)
 e Inno Setup 6 (`winget install JRSoftware.InnoSetup`). Poi:
 
-1. aggiornare il numero di versione nel file `VERSION` (es. `1.1.0`);
-2. eseguire `build_installer.bat`;
-3. pubblicare `dist\GareDiMate-Setup-<versione>.exe` come nuova release su GitHub.
+1. eseguire la suite completa: `python tests/run.py --completa`;
+2. aggiornare il numero di versione nel file `VERSION` (es. `1.1.0`);
+3. eseguire `build_installer.bat`;
+4. pubblicare `dist\GareDiMate-Setup-<versione>.exe` come nuova release su GitHub.
 
 ## Installazione da sorgente (sviluppo, Linux, macOS)
 
@@ -152,6 +154,7 @@ gare-di-mate/
 ├── auth.py              # Password di accesso per i dispositivi in rete
 ├── database.py          # Setup SQLite / SQLAlchemy, eager loading
 ├── migrations.py        # Aggiornamento automatico della struttura del database (con backup)
+├── tempo.py             # Tempo di gara: ripresa dopo un crash e avanzamento manuale
 ├── models.py            # Modelli dati (Competition, Team, Problem, ...)
 ├── engine.py            # Motore di calcolo punteggi (O(S), nessun punteggio salvato)
 ├── cache.py             # Cache in memoria con TTL e invalidazione esplicita
@@ -172,17 +175,36 @@ gare-di-mate/
 ├── build_installer.bat  # Crea l'installer Windows
 ├── avvia.bat            # Script di avvio Windows
 ├── avvia.sh             # Script di avvio Linux/macOS
+├── tests/               # Test automatici (run.py: suite rapida e completa)
 ├── setup_test.py        # Crea una gara di prova pronta all'avvio
-├── test_live.py         # Test automatizzato end-to-end (gara di 2 minuti)
+├── test_data.py         # Verifica dei calcoli dei punteggi (usato dai test)
+├── test_live.py         # Gara completa di 2 minuti (usato dalla suite completa)
 └── requirements.txt
 ```
+
+## Test
+
+I test girano su una copia temporanea del progetto con una porta libera: il `gare.db` vero
+non viene toccato e non serve avere il server acceso.
+
+```bash
+# Suite rapida (meno di mezzo minuto): da usare durante lo sviluppo
+python tests/run.py
+
+# Suite completa (qualche minuto): prima di compilare una versione definitiva.
+# Aggiunge crash veri con riavvio, la modalità --migra dell'installer e una gara di 2 minuti.
+python tests/run.py --completa
+
+# Dettaglio di ogni controllo
+python tests/run.py -v
+```
+
+Per simulare un dispositivo in rete serve un secondo indirizzo IPv4 del computer (per esempio
+una VPN come ZeroTier); se manca, quei controlli vengono segnalati come saltati.
 
 ## Script di utilità
 
 ```bash
 # Crea una gara di prova (3 squadre + 1 ospite, 4 problemi, 10 minuti)
 python setup_test.py
-
-# Esegui il test automatizzato end-to-end (richiede il server in esecuzione)
-python test_live.py
 ```

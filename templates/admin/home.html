@@ -60,4 +60,10 @@
 {% else %}
 <p class="text-gray-500">Nessuna gara creata. <a href="/admin/crea" class="text-blue-600 hover:underline">Crea la prima gara</a>.</p>
 {% endif %}
+
+{# Una gara alla volta: dopo la risposta compare l'eventuale successiva. #}
+{% set torna = "home" %}
+{% for comp in comps if comp.recovery_downtime_seconds is not none %}
+  {% if loop.first %}{% include "admin/_ripresa.html" %}{% endif %}
+{% endfor %}
 {% endblock %}

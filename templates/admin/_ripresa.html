@@ -1,0 +1,51 @@
+{# Popup dopo una chiusura del programma a gara in corso. Richiede: comp, torna ("home" o "gara"). #}
+{% set interruzione = comp.recovery_downtime_seconds %}
+{% set massimo = avanzamento_massimo(comp) %}
+{% set proposta = [interruzione, massimo]|min %}
+<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg">
+    <h3 class="text-xl font-bold mb-4">⚠️ Gara ripresa dopo una chiusura del programma</h3>
+    <div class="space-y-2 text-gray-700 mb-5">
+      <p>
+        Gare di Mate si è chiuso alle <strong>{{ ora_locale(comp.recovery_crash_at) }}</strong>
+        mentre la gara <strong>{{ comp.name }}</strong> era in corso,
+        ed è rimasto chiuso per <strong>{{ durata(interruzione) }}</strong>.
+      </p>
+      <p>
+        La gara è ripresa dal punto in cui si era fermata (minuto <strong>{{ mmss(comp.elapsed_seconds()) }}</strong>),
+        come se fosse stata in pausa.
+      </p>
+      <p>
+        Se durante l'interruzione le squadre hanno continuato a lavorare, si può far avanzare il tempo di gara.
+        La durata proposta è quella dell'interruzione e si può cambiare.
+      </p>
+      {% if massimo < interruzione %}
+      <p class="text-sm text-orange-700">
+        La proposta è limitata a {{ durata(massimo) }}: il tempo non può superare la fine della gara.
+      </p>
+      {% endif %}
+    </div>
+    <form method="post" action="/admin/gara/{{ comp.id }}/ripresa">
+      <input type="hidden" name="torna" value="{{ torna }}">
+      <div class="flex items-center gap-2 mb-5 text-lg">
+        <span>Avanza di</span>
+        <input name="minutes" type="number" min="0" value="{{ (proposta // 60)|int }}"
+               class="w-20 border-2 rounded-lg px-2 py-1 text-center font-mono">
+        <span>min</span>
+        <input name="seconds" type="number" min="0" max="59" value="{{ (proposta % 60)|int }}"
+               class="w-20 border-2 rounded-lg px-2 py-1 text-center font-mono">
+        <span>s</span>
+      </div>
+      <div class="flex gap-3">
+        <button name="azione" value="avanza"
+                class="flex-1 bg-blue-700 text-white py-3 rounded-xl font-semibold hover:bg-blue-800">
+          Avanza il tempo
+        </button>
+        <button name="azione" value="ignora" formnovalidate
+                class="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50">
+          Riprendi senza avanzare
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

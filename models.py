@@ -38,6 +38,12 @@ class Competition(Base):
     total_paused_seconds: Mapped[float] = mapped_column(Float, default=0.0)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # Tempo: avanzamenti manuali e ripresa dopo una chiusura del programma (vedi tempo.py)
+    time_offset_seconds: Mapped[float] = mapped_column(Float, default=0.0)  # somma degli avanzamenti manuali
+    last_alive_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # battito del server a gara in corso
+    recovery_crash_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)  # ultimo battito prima della chiusura
+    recovery_downtime_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)  # durata della chiusura, da mostrare all'admin
+
     # Display
     display_theme: Mapped[str] = mapped_column(String(10), default='light')  # dark|light
 
@@ -53,6 +59,8 @@ class Competition(Base):
     jolly_choices: Mapped[list["JollyChoice"]] = relationship("JollyChoice", back_populates="competition", cascade="all, delete-orphan")
     penalties: Mapped[list["Penalty"]] = relationship("Penalty", back_populates="competition", cascade="all, delete-orphan")
     displays: Mapped[list["Display"]] = relationship("Display", back_populates="competition", cascade="all, delete-orphan")
+    time_adjustments: Mapped[list["TimeAdjustment"]] = relationship(
+        "TimeAdjustment", back_populates="competition", cascade="all, delete-orphan")
 
     @property
     def first_delivery_bonuses(self) -> list[int]:
@@ -70,27 +78,21 @@ class Competition(Base):
     def full_bonuses(self, value: list[int]):
         self.full_bonuses_json = json.dumps(value)
 
-    def elapsed_seconds(self, at: datetime | None = None) -> float:
-        """Seconds of actual game time elapsed (excluding pauses)."""
+    def elapsed_seconds(self) -> float:
+        """Secondi di gara trascorsi: tempo reale meno le pause, più gli avanzamenti manuali."""
         if self.started_at is None:
             return 0.0
-        now = at or datetime.utcnow()
+        now = datetime.utcnow()
         if self.status == "ended" and self.ended_at:
             now = self.ended_at
         raw = (now - self.started_at).total_seconds()
         paused = self.total_paused_seconds
         if self.status == "paused" and self.paused_at:
             paused += (now - self.paused_at).total_seconds()
-        return max(0.0, raw - paused)
+        return max(0.0, raw - paused + (self.time_offset_seconds or 0.0))
 
-    def elapsed_minutes(self, at: datetime | None = None) -> float:
-        return self.elapsed_seconds(at) / 60.0
-
-    def game_second_for(self, wall_time: datetime) -> float:
-        """Convert a wall-clock time to game seconds elapsed at that moment."""
-        if self.started_at is None or wall_time < self.started_at:
-            return 0.0
-        return self.elapsed_seconds(at=wall_time)
+    def elapsed_minutes(self) -> float:
+        return self.elapsed_seconds() / 60.0
 
 
 class Team(Base):
@@ -170,6 +172,20 @@ class Penalty(Base):
 
     competition: Mapped["Competition"] = relationship("Competition", back_populates="penalties")
     team: Mapped["Team"] = relationship("Team", back_populates="penalties")
+
+
+class TimeAdjustment(Base):
+    """Un avanzamento del tempo di gara (la somma è Competition.time_offset_seconds)."""
+    __tablename__ = "time_adjustments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    competition_id: Mapped[int] = mapped_column(Integer, ForeignKey("competitions.id"))
+    seconds: Mapped[float] = mapped_column(Float)  # secondi di gara aggiunti
+    game_seconds_at: Mapped[float] = mapped_column(Float)  # tempo di gara subito prima dell'avanzamento
+    reason: Mapped[str] = mapped_column(String(20), default="manuale")  # manuale | ripresa (dopo una chiusura)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    competition: Mapped["Competition"] = relationship("Competition", back_populates="time_adjustments")
 
 
 class Setting(Base):

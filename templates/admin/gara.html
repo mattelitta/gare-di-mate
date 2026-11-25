@@ -53,6 +53,131 @@
   <a href="/admin/gara/{{ comp.id }}/modifica" class="ml-auto text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">Modifica parametri, squadre e problemi</a>
 </div>
 
+{% if request.query_params.get('errore') %}
+<div class="bg-red-100 border border-red-300 text-red-800 rounded-lg px-4 py-3 mb-4">
+  {{ request.query_params.get('errore') }}
+</div>
+{% endif %}
+
+{% if comp.status != 'created' %}
+<!-- Tempo di gara -->
+<div id="tempo" class="bg-white rounded-lg shadow p-4 mb-4 scroll-mt-4">
+<div class="flex flex-wrap items-center gap-x-6 gap-y-3">
+  <div>
+    <span class="text-sm text-gray-600">Tempo di gara</span>
+    <span id="tempo-gara" class="font-mono text-2xl font-bold ml-2">{{ mmss(comp.elapsed_seconds()) }}</span>
+    <span class="font-mono text-gray-500">/ {{ mmss(comp.duration_minutes * 60) }}</span>
+  </div>
+  {% if comp.time_offset_seconds %}
+  <span class="text-sm text-gray-600">Avanzato in totale: <strong class="font-mono">+{{ mmss(comp.time_offset_seconds) }}</strong></span>
+  {% endif %}
+  {% if comp.status in ('running', 'paused') %}
+  <form method="post" action="/admin/gara/{{ comp.id }}/avanza-tempo" onsubmit="return confermaAvanzamento(this)"
+        class="ml-auto flex items-center gap-1 text-sm">
+    <span class="text-gray-600 mr-1">⏩ Avanza il tempo di</span>
+    <input name="minutes" type="number" min="0" value="0" class="w-16 border rounded px-2 py-1 text-center font-mono">
+    <span>min</span>
+    <input name="seconds" type="number" min="0" max="59" value="0" class="w-16 border rounded px-2 py-1 text-center font-mono">
+    <span>s</span>
+    <button class="bg-gray-700 text-white px-3 py-1.5 rounded hover:bg-gray-800 ml-1">Avanza</button>
+  </form>
+  {% endif %}
+</div>
+{% if comp.time_adjustments %}
+<div class="mt-3 pt-3 border-t text-sm">
+  <div class="text-gray-600 font-medium mb-1">Avanzamenti del tempo</div>
+  {% for adj in comp.time_adjustments|sort(attribute='created_at') %}
+  <div class="flex items-center justify-between py-1 border-b last:border-0">
+    <span>
+      <span class="font-mono">{{ mmss(adj.game_seconds_at) }} → {{ mmss(adj.game_seconds_at + adj.seconds) }}</span>
+      <strong class="ml-2">+{{ durata(adj.seconds) }}</strong>
+      <span class="text-xs text-gray-500 ml-1">{% if adj.reason == 'ripresa' %}dopo una chiusura del programma{% else %}manuale{% endif %}</span>
+    </span>
+    {% if not comp.final_locked %}
+    <div class="flex gap-2">
+      <a href="#" onclick="apriModificaAvanzamento({{ adj.id }}, {{ adj.seconds|round|int }}); return false;"
+         class="text-blue-600 hover:underline text-xs">modifica</a>
+      <form method="post" action="/admin/gara/{{ comp.id }}/avanzamenti/{{ adj.id }}/elimina"
+            onsubmit="return confirm('Eliminare questo avanzamento?\n\nIl cronometro e le consegne registrate dopo torneranno indietro di {{ durata(adj.seconds) }}.')">
+        <button class="text-red-500 hover:underline text-xs">elimina</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+</div>
+
+<!-- Finestra modifica avanzamento -->
+<div id="modal-avanzamento" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+    <h3 class="font-semibold mb-2">Modifica avanzamento</h3>
+    <p class="text-sm text-gray-600 mb-4">
+      Il cronometro e le consegne registrate dopo questo avanzamento si spostano della differenza,
+      come se l'avanzamento fosse stato fin dall'inizio della durata corretta.
+    </p>
+    <form id="form-avanzamento" method="post" class="space-y-4">
+      <div class="flex items-center gap-2">
+        <span>Avanzamento di</span>
+        <input id="av-min" name="minutes" type="number" min="0" class="w-20 border rounded px-2 py-1.5 text-center font-mono">
+        <span>min</span>
+        <input id="av-sec" name="seconds" type="number" min="0" max="59" class="w-20 border rounded px-2 py-1.5 text-center font-mono">
+        <span>s</span>
+      </div>
+      <div class="flex gap-2">
+        <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800">Salva</button>
+        <button type="button" onclick="document.getElementById('modal-avanzamento').classList.add('hidden')"
+                class="px-4 py-2 rounded border hover:bg-gray-50">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+  function apriModificaAvanzamento(id, secondi) {
+    document.getElementById('form-avanzamento').action = '/admin/gara/{{ comp.id }}/avanzamenti/' + id + '/modifica';
+    document.getElementById('av-min').value = Math.floor(secondi / 60);
+    document.getElementById('av-sec').value = secondi % 60;
+    document.getElementById('modal-avanzamento').classList.remove('hidden');
+  }
+</script>
+<script>
+  const TEMPO_GARA = {
+    base: {{ comp.elapsed_seconds() }},
+    durata: {{ comp.duration_minutes * 60 }},
+    inCorso: {{ 'true' if comp.status == 'running' else 'false' }},
+    caricato: Date.now(),
+  };
+  function tempoGara() {
+    const trascorso = TEMPO_GARA.inCorso ? (Date.now() - TEMPO_GARA.caricato) / 1000 : 0;
+    return TEMPO_GARA.base + trascorso;
+  }
+  function mmss(s) {
+    s = Math.max(0, Math.floor(s));
+    return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+  }
+  if (TEMPO_GARA.inCorso) {
+    setInterval(() => { document.getElementById('tempo-gara').textContent = mmss(tempoGara()); }, 1000);
+  }
+  function confermaAvanzamento(form) {
+    const delta = (parseInt(form.minutes.value) || 0) * 60 + (parseInt(form.seconds.value) || 0);
+    if (delta <= 0) {
+      alert('Indicare di quanti minuti e secondi avanzare.');
+      return false;
+    }
+    const ora = tempoGara();
+    const dopo = Math.min(ora + delta, TEMPO_GARA.durata);
+    return confirm('Far avanzare il tempo di gara?\n\nIl cronometro passerà da ' + mmss(ora) + ' a ' + mmss(dopo) +
+                   (ora + delta > TEMPO_GARA.durata ? ' (fine della gara).' : '.'));
+  }
+</script>
+{% endif %}
+
+{% if comp.recovery_downtime_seconds is not none %}
+  {% set torna = "gara" %}
+  {% include "admin/_ripresa.html" %}
+{% endif %}
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
   <!-- Squadre (sola lettura: si modificano in "Modifica parametri") -->

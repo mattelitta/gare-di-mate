@@ -28,10 +28,30 @@ def _add_column(conn, table: str, column: str, ddl: str):
 # Ogni passaggio deve essere idempotente: i database precedenti alla numerazione
 # (user_version = 0) possono averne già applicati alcuni, e SQLite esegue i DDL
 # fuori transazione, quindi un passaggio interrotto può essere ripetuto.
+def _time_columns(c):
+    _add_column(c, "competitions", "time_offset_seconds", "FLOAT DEFAULT 0")
+    _add_column(c, "competitions", "last_alive_at", "DATETIME")
+    _add_column(c, "competitions", "recovery_crash_at", "DATETIME")
+    _add_column(c, "competitions", "recovery_downtime_seconds", "FLOAT")
+
+
+def _backfill_time_adjustments(c):
+    # La tabella time_adjustments la crea create_all; qui si registra come un unico avanzamento
+    # l'eventuale tempo già avanzato prima che i singoli avanzamenti venissero salvati.
+    c.exec_driver_sql(
+        "INSERT INTO time_adjustments (competition_id, seconds, game_seconds_at, reason, created_at) "
+        "SELECT id, time_offset_seconds, 0, 'manuale', CURRENT_TIMESTAMP FROM competitions "
+        "WHERE time_offset_seconds > 0 "
+        "AND id NOT IN (SELECT competition_id FROM time_adjustments)"
+    )
+
+
 MIGRATIONS = [
     lambda c: _add_column(c, "displays", "text_scale", "INTEGER DEFAULT 3"),               # 1
     lambda c: _add_column(c, "competitions", "display_theme", "VARCHAR DEFAULT 'light'"),  # 2
     lambda c: _add_column(c, "submissions", "device_id", "VARCHAR(64)"),                   # 3
+    _time_columns,                                                                         # 4
+    _backfill_time_adjustments,                                                            # 5
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
 

@@ -6,8 +6,14 @@
   <a href="/inserimento/{{ comp.id }}" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">← Inserimento</a>
 </div>
 
-{% set filtri_attivi = f_squadra is not none or f_problema is not none or f_mie %}
 <form method="get" class="bg-white rounded-lg shadow p-3 mb-3 flex flex-wrap items-end gap-4">
+  <div>
+    <label class="block text-xs font-medium text-gray-500 mb-1">Ordine</label>
+    <select name="ordine" onchange="this.form.submit()" class="border rounded px-2 py-1.5 text-sm">
+      <option value="">Più recenti in alto</option>
+      <option value="crescente" {% if crescente %}selected{% endif %}>Più vecchie in alto</option>
+    </select>
+  </div>
   <div>
     <label class="block text-xs font-medium text-gray-500 mb-1">Squadra</label>
     <select name="squadra" onchange="this.form.submit()" class="border rounded px-2 py-1.5 text-sm">
@@ -31,10 +37,10 @@
     Solo inserite da questo dispositivo
   </label>
   {% if filtri_attivi %}
-  <a href="/inserimento/{{ comp.id }}/consegne" class="text-sm text-blue-600 hover:underline py-1.5">Azzera filtri</a>
+  <a href="/inserimento/{{ comp.id }}/consegne{% if crescente %}?ordine=crescente{% endif %}" class="text-sm text-blue-600 hover:underline py-1.5">Azzera filtri</a>
   {% endif %}
   <span class="ml-auto text-sm text-gray-500 py-1.5">
-    {% if filtri_attivi %}{{ rows|length }} di {{ total }} consegne{% else %}{{ total }} consegne{% endif %}
+    {% if filtri_attivi %}{{ shown }} di {{ total }} consegne{% else %}{{ total }} consegne{% endif %}
   </span>
 </form>
 
@@ -53,7 +59,28 @@
       </tr>
     </thead>
     <tbody class="divide-y divide-gray-100">
-      {% for idx, sub in rows %}
+      {% for tipo, idx, sub in voci %}
+      {% if tipo == 'avanzamento' %}
+      {% set adj = sub %}
+      <tr class="bg-blue-50">
+        <td class="px-4 py-2 text-blue-500">⏩</td>
+        <td colspan="4" class="px-4 py-2 text-blue-900">
+          Tempo di gara avanzato di <strong>{{ durata(adj.seconds) }}</strong>
+          <span class="text-xs text-blue-700 ml-1">
+            {% if adj.reason == 'ripresa' %}(dopo una chiusura del programma){% else %}(avanzamento manuale){% endif %}
+          </span>
+        </td>
+        <td class="px-4 py-2 font-mono text-blue-800 whitespace-nowrap">{{ mmss(adj.game_seconds_at) }} → {{ mmss(adj.game_seconds_at + adj.seconds) }}</td>
+        <td></td>
+        <td class="px-4 py-2 text-xs">
+          {% if request.state.is_local %}
+          <a href="/admin/gara/{{ comp.id }}#tempo" class="text-blue-600 hover:underline">Modifica in Admin</a>
+          {% else %}
+          <span class="text-gray-400">solo Admin</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
       {% set team = teams[sub.team_id] %}
       {% set prob = problems[sub.problem_id] %}
       <tr class="{% if sub.is_correct %}bg-green-50{% else %}bg-red-50{% endif %} hover:brightness-95">
@@ -93,6 +120,7 @@
           </div>
         </td>
       </tr>
+      {% endif %}
       {% else %}
       <tr><td colspan="8" class="px-4 py-6 text-center text-gray-400">
         {% if filtri_attivi %}Nessuna consegna corrisponde ai filtri.{% else %}Nessuna consegna registrata.{% endif %}

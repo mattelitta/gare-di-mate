@@ -112,7 +112,7 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
             "name": ts.name,
             "city": ts.city,
             "is_guest": ts.is_guest,
-            "total": round(ts.total, 2),
+            "total": ts.total,
             "jolly_problem_id": ts.jolly_problem_id,
             "problem_contributions": {str(k): round(v, 2) for k, v in ts.problem_contributions.items()},
             "problem_errors": ts.problem_errors,
@@ -126,7 +126,7 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
             "id": ps.problem_id,
             "number": ps.number,
             "name": ps.name,
-            "value": round(ps.value, 2),
+            "value": ps.value,
             "num_solvers": len(ps.solvers),
         }
         for ps in sorted(prob_states.values(), key=lambda x: x.number)
