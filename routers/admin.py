@@ -1,4 +1,5 @@
 import json
+import socket
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -14,6 +15,17 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 
+def get_local_ip() -> str:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "N/D"
+
+
 def require_localhost(request: Request):
     host = request.client.host if request.client else ""
     if host not in ("127.0.0.1", "::1", "localhost"):
@@ -25,7 +37,7 @@ def require_localhost(request: Request):
 async def admin_home(request: Request, db: Session = Depends(get_db)):
     require_localhost(request)
     comps = db.query(Competition).order_by(Competition.created_at.desc()).all()
-    return templates.TemplateResponse("admin/home.html", {"request": request, "comps": comps})
+    return templates.TemplateResponse("admin/home.html", {"request": request, "comps": comps, "local_ip": get_local_ip()})
 
 
 # --- Create competition ---

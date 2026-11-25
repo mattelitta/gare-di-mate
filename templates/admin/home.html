@@ -1,9 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Admin — Gare di Mate{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
+<div class="flex items-center justify-between mb-4">
   <h1 class="text-2xl font-bold">Gestione Gare</h1>
   <a href="/admin/crea" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800">+ Nuova gara</a>
+</div>
+
+<div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-3">
+  <span class="text-blue-500 text-lg">🌐</span>
+  <span class="text-sm text-blue-700 font-medium">Gli altri dispositivi si collegano su:</span>
+  <span class="font-mono font-bold text-blue-900 text-base">http://{{ local_ip }}:8000</span>
 </div>
 
 {% if comps %}
