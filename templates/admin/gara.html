@@ -16,13 +16,21 @@
   <a href="/admin/" class="text-sm text-gray-500 hover:underline">← Tutte le gare</a>
 </div>
 
-<!-- Controlli stato -->
-<div class="bg-white rounded-lg shadow p-4 mb-4 flex flex-wrap gap-2 items-center">
-  <span class="font-medium text-sm mr-2">Stato gara:</span>
+<!-- Controlli stato: a sinistra i comandi della fase attuale, a destra gli interruttori -->
+<div class="bg-white rounded-lg shadow mb-4">
+  <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b">
+    <h2 class="font-semibold">Stato gara</h2>
+    <a href="/admin/gara/{{ comp.id }}/modifica" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">✏️ Modifica parametri, squadre e problemi</a>
+  </div>
+  <div class="p-4 grid gap-x-8 gap-y-5 md:grid-cols-2">
+  <div>
+  <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">{% if comp.status == 'ended' %}Classifica finale{% else %}Comandi{% endif %}</p>
+  <div class="flex flex-wrap items-center gap-2">
   {% if comp.status == 'created' %}
     {# Questo tasto apre solo il riepilogo: la gara parte con "Avvia ora", nel momento esatto scelto. #}
     <button type="button" onclick="apriAvvio()"
-            class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm">▶ Prepara l'avvio…</button>
+            class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium">▶ Prepara l'avvio…</button>
+    <span class="text-xs text-gray-500">apre il riepilogo: la gara parte solo con "Avvia ora"</span>
     {% set ospiti = comp.teams|selectattr('is_guest')|list|length %}
     <dialog id="dialogo-avvio" class="rounded-2xl shadow-2xl p-0 w-full max-w-lg backdrop:bg-black/50">
       <form method="post" action="/admin/gara/{{ comp.id }}/avvia" class="p-6">
@@ -92,47 +100,47 @@
     </script>
   {% elif comp.status == 'running' %}
     <form method="post" action="/admin/gara/{{ comp.id }}/pausa">
-      <button class="bg-yellow-500 text-white px-4 py-1.5 rounded hover:bg-yellow-600 text-sm">⏸ Pausa</button>
+      <button class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 text-sm font-medium">⏸ Pausa</button>
     </form>
     <form method="post" action="/admin/gara/{{ comp.id }}/termina"
           data-conferma="Terminare definitivamente la gara?&#10;&#10;La classifica verrà oscurata." data-conferma-ok="Termina la gara">
-      <button class="bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700 text-sm">⏹ Termina</button>
+      <button class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium">⏹ Termina</button>
     </form>
   {% elif comp.status == 'paused' %}
     <form method="post" action="/admin/gara/{{ comp.id }}/avvia">
-      <button class="bg-green-600 text-white px-4 py-1.5 rounded hover:bg-green-700 text-sm">▶ Riprendi</button>
+      <button class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium">▶ Riprendi</button>
     </form>
     <form method="post" action="/admin/gara/{{ comp.id }}/termina"
           data-conferma="Terminare definitivamente la gara?&#10;&#10;La classifica verrà oscurata." data-conferma-ok="Termina la gara">
-      <button class="bg-red-600 text-white px-4 py-1.5 rounded hover:bg-red-700 text-sm">⏹ Termina</button>
+      <button class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium">⏹ Termina</button>
     </form>
   {% elif comp.status == 'ended' %}
     <form method="post" action="/admin/gara/{{ comp.id }}/calcola-finale"
           {% if comp.revealed_positions %}data-conferma="La rivelazione della classifica finale è già iniziata ({{ comp.revealed_positions }} posizioni).&#10;&#10;Ricalcolando, ripartirà dall'inizio. Continuare?" data-conferma-ok="Ricalcola"{% endif %}>
-      <button class="bg-blue-700 text-white px-4 py-1.5 rounded hover:bg-blue-800 text-sm">
+      <button class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 text-sm font-medium">
         {% if comp.final_computed_at %}🔄 Ricalcola classifica finale{% else %}📊 Calcola classifica finale{% endif %}
       </button>
     </form>
-    <span class="text-sm text-gray-600">
-      {% if comp.final_computed_at %}calcolata alle {{ ora_locale(comp.final_computed_at) }}{% else %}non ancora calcolata{% endif %}
-    </span>
     {% if comp.final_ranking_json %}
     {# Classifica finale, valori dei problemi e stato della gara. Rifiutato se i punteggi sono cambiati dopo il calcolo. #}
     <a href="/admin/gara/{{ comp.id }}/esporta-pdf"
-       class="bg-white border border-blue-700 text-blue-700 hover:bg-blue-50 px-4 py-1.5 rounded text-sm">📄 Esporta PDF dei risultati</a>
+       class="bg-white border border-blue-700 text-blue-700 hover:bg-blue-50 px-4 py-2 rounded text-sm font-medium">📄 Esporta PDF dei risultati</a>
     {% endif %}
-    <form method="post" action="/admin/gara/{{ comp.id }}/blocco-inserimenti" class="ml-4">
-      <label class="flex items-center gap-2 text-sm cursor-pointer px-3 py-1.5 rounded
-                    {% if comp.insertions_locked %}bg-red-100 text-red-800 font-semibold{% else %}bg-gray-100{% endif %}">
-        <input type="checkbox" name="bloccati" value="1" class="w-4 h-4" onchange="this.form.submit()"
-               {% if comp.insertions_locked %}checked{% endif %}>
-        🔒 Inserimenti bloccati
-      </label>
-    </form>
   {% endif %}
+  </div>
+  {% if comp.status == 'ended' %}
+  <p class="text-sm text-gray-600 mt-2">
+    {% if comp.final_computed_at %}calcolata alle {{ ora_locale(comp.final_computed_at) }}{% else %}non ancora calcolata{% endif %}
+  </p>
+  {% endif %}
+  </div>
+
+  <div>
+  <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Display e inserimenti</p>
+  <div class="space-y-2">
   {% set oscurata = comp.blackout_active() %}
-  <form method="post" action="/admin/gara/{{ comp.id }}/oscuramento" class="ml-4 flex items-center gap-2">
-    <label class="flex items-center gap-2 text-sm cursor-pointer px-3 py-1.5 rounded
+  <form method="post" action="/admin/gara/{{ comp.id }}/oscuramento" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+    <label class="flex items-center gap-2 text-sm cursor-pointer px-3 py-2 rounded min-w-[14rem]
                   {% if oscurata %}bg-slate-800 text-white font-semibold{% else %}bg-gray-100{% endif %}"
            title="Si oscura da sola al minuto {{ comp.blackout_minute }} e quando si termina la gara">
       <input type="checkbox" name="oscurata" value="1" class="w-4 h-4" onchange="this.form.submit()"
@@ -145,7 +153,20 @@
       {% else %}automatico (minuto {{ comp.blackout_minute }} e fine gara){% endif %}
     </span>
   </form>
-  <a href="/admin/gara/{{ comp.id }}/modifica" class="ml-auto text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">Modifica parametri, squadre e problemi</a>
+  {% if comp.status == 'ended' %}
+  <form method="post" action="/admin/gara/{{ comp.id }}/blocco-inserimenti" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+    <label class="flex items-center gap-2 text-sm cursor-pointer px-3 py-2 rounded min-w-[14rem]
+                  {% if comp.insertions_locked %}bg-red-100 text-red-800 font-semibold{% else %}bg-gray-100{% endif %}">
+      <input type="checkbox" name="bloccati" value="1" class="w-4 h-4" onchange="this.form.submit()"
+             {% if comp.insertions_locked %}checked{% endif %}>
+      🔒 Inserimenti bloccati
+    </label>
+    <span class="text-xs text-gray-500">soluzioni, jolly e modifiche dello storico</span>
+  </form>
+  {% endif %}
+  </div>
+  </div>
+  </div>
 </div>
 
 {% if request.query_params.get('errore') %}

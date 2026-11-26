@@ -56,6 +56,8 @@ check("punteggi cambiati dopo il calcolo: rifiutato con invito a ricalcolare",
 req(f"{G}/calcola-finale", {})
 st, _, contenuto = scarica()
 check("dopo il ricalcolo: di nuovo scaricabile", st == 200 and contenuto.startswith(b"%PDF"))
+if os.environ.get("GDM_PDF_OUT"):  # con una penalizzazione: colonna "Bonus" e spiegazione presenti
+    Path(os.environ["GDM_PDF_OUT"]).with_suffix(".penalita.pdf").write_bytes(contenuto)
 
 # Molte squadre: lo stato della gara continua su più pagine
 for n in range(10, 50):

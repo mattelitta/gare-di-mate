@@ -228,7 +228,12 @@ def _pagine_stato(pdf: _PDF, comp: Competition, prob_states, team_scores):
     probs = sorted(prob_states.values(), key=lambda p: p.number)
     teams = sorted(team_scores.values(), key=lambda t: t.number)
     larghezza = 297 - 24
-    w_tot = w_bonus = 15
+    # La colonna "Bonus" (e la sua spiegazione) c'è solo se qualcuno ha un bonus di completamento
+    # o se l'Admin ha assegnato bonus o penalizzazioni.
+    con_admin = bool(comp.penalties)
+    con_full = any(t.full_bonus_earned for t in teams)
+    w_tot = 15
+    w_bonus = 15 if (con_admin or con_full) else 0
     # Celle tra 5 e 14 mm; con pochi problemi lo spazio avanzato va alla colonna dei nomi.
     w_cella = max(5.0, min(14.0, (larghezza - 58 - w_tot - w_bonus) / max(1, len(probs))))
     w_nome = max(58.0, larghezza - w_tot - w_bonus - w_cella * len(probs))
@@ -254,24 +259,31 @@ def _pagine_stato(pdf: _PDF, comp: Competition, prob_states, team_scores):
         pdf.cell(w_nome, h, pdf.t("Squadra"), border=1, fill=True)
         for ps in probs:
             cella(f"{ps.number:02d}", w_cella, True, INTESTAZIONE)
-        cella("Bonus", w_bonus, True, INTESTAZIONE)
+        if w_bonus:
+            cella("Bonus", w_bonus, True, INTESTAZIONE)
         cella(pdf.t("Totale"), w_tot, True, INTESTAZIONE)
         pdf.ln(h)
         pdf.carattere(dim)
         pdf.cell(w_nome, h, pdf.t("Valore"), border=1)
         for ps in probs:
             cella(str(ps.value), w_cella)
-        pdf.cell(w_bonus, h, "", border=1)
+        if w_bonus:
+            pdf.cell(w_bonus, h, "", border=1)
         pdf.cell(w_tot, h, "", border=1)
         pdf.ln(h)
 
+    totale = f"Totale = punteggio iniziale ({comp.effective_starting_score}) + caselle"
+    if con_full and con_admin:
+        totale += " + bonus (completamento di tutti i problemi e bonus o penalizzazioni dell'Admin)"
+    elif con_full:
+        totale += " + bonus per aver risolto tutti i problemi"
+    elif con_admin:
+        totale += " + bonus o penalizzazioni dell'Admin"
     for inizio in range(0, max(1, len(teams)), righe_per_pagina):
         pdf.add_page(orientation="L")
         pdf.intestazione("Stato della gara",
                          "Verde: risolto · rosso: solo risposte sbagliate (tra parentesi gli errori) · "
-                         "bordo giallo: jolly · in arancione: squadre ospiti. "
-                         f"Totale = punteggio iniziale ({comp.effective_starting_score}) + caselle + bonus "
-                         "(completamento di tutti i problemi e bonus o penalizzazioni dell'Admin).")
+                         "bordo giallo: jolly · in arancione: squadre ospiti. " + totale + ".")
         testata()
         for t in teams[inizio:inizio + righe_per_pagina]:
             pdf.carattere(dim, True)
@@ -299,8 +311,9 @@ def _pagine_stato(pdf: _PDF, comp: Competition, prob_states, team_scores):
                     pdf.rect(x + 0.4, y + 0.4, w_cella - 0.8, h - 0.8)
                     pdf.set_draw_color(0, 0, 0)
                     pdf.set_line_width(0.2)
-            altro = t.full_bonus_earned + t.penalty_total
-            cella(f"{altro:+d}" if altro else "", w_bonus)
+            if w_bonus:
+                altro = t.full_bonus_earned + t.penalty_total
+                cella(f"{altro:+d}" if altro else "", w_bonus)
             cella(str(t.total), w_tot, True)
             pdf.ln(h)
         pdf.carattere(dim, True)
@@ -308,7 +321,8 @@ def _pagine_stato(pdf: _PDF, comp: Competition, prob_states, team_scores):
         pdf.carattere(dim)
         for ps in probs:
             cella(str(len(ps.solvers)), w_cella)
-        pdf.cell(w_bonus, h, "", border=1)
+        if w_bonus:
+            pdf.cell(w_bonus, h, "", border=1)
         pdf.cell(w_tot, h, "", border=1)
         pdf.ln(h)
 
