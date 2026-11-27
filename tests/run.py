@@ -35,6 +35,7 @@ TESTS = [
     ("Visibilità dei jolly", "tests/test_jolly_visibili.py", True, True),
     ("Fine gara: classifica e blocco", "tests/test_finale.py", True, True),
     ("Esportazione PDF", "tests/test_pdf.py", True, True),
+    ("Sicurezza in rete", "tests/test_sicurezza.py", True, True),
     ("Oscuramento e scadenze", "tests/test_oscuramento.py", True, True),
     ("Pagine admin e inserimento", "tests/test_admin.py", True, True),
     ("Parametri di gara", "tests/test_parametri.py", True, True),
@@ -81,7 +82,7 @@ def secondary_ip() -> str:
 def prepare_copy() -> Path:
     dest = Path(tempfile.mkdtemp(prefix="gdm-test-")) / "app"
     shutil.copytree(ROOT, dest, ignore=shutil.ignore_patterns(
-        ".git", "venv", ".venv", "build", "dist", "__pycache__", "*.db", "*.log"))
+        ".git", "venv", ".venv", "build", "dist", "__pycache__", "*.db", "*.log", "certificato"))
     return dest
 
 
@@ -101,9 +102,9 @@ def fresh_database(app: Path):
     subprocess.run([sys.executable, "setup_test.py"], cwd=app, capture_output=True, check=True)
 
 
-def start_server(app: Path, port: int):
+def start_server(app: Path, port: int, tls_port: int):
     log = open(app / "server.log", "a", encoding="utf-8")
-    p = subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(port)],
+    p = subprocess.Popen([sys.executable, "server.py", "--http-port", str(port), "--https-port", str(tls_port)],
                          cwd=app, stdout=log, stderr=log)
     for _ in range(80):
         try:
@@ -137,12 +138,16 @@ def main():
         selected = [t for t in TESTS if args.completa or t[3]]
     app = prepare_copy()
     port = free_port()
+    tls_port = free_port()
+    while tls_port == port:
+        tls_port = free_port()
     remote_ip = secondary_ip()
-    env = {**os.environ, "GDM_APP": str(app), "GDM_PORT": str(port), "GDM_REMOTE_IP": remote_ip,
+    env = {**os.environ, "GDM_APP": str(app), "GDM_PORT": str(port), "GDM_TLS_PORT": str(tls_port),
+           "GDM_REMOTE_IP": remote_ip,
            "GDM_BASE": f"http://127.0.0.1:{port}", "PYTHONIOENCODING": "utf-8"}
     nome = f"filtrata '{args.k}'" if args.k else ("completa" if args.completa else "rapida")
     print(f"Suite {nome}: {len(selected)} gruppi di test")
-    print(f"Copia di prova: {app}  (porta {port}"
+    print(f"Copia di prova: {app}  (porte {port} e {tls_port} HTTPS"
           + (f", dispositivo remoto simulato da {remote_ip})" if remote_ip else ", nessun IP secondario: controlli remoti saltati)"))
     print()
 
@@ -157,7 +162,7 @@ def main():
     for name, script, needs_server, _ in selected:
         t0 = time.time()
         fresh_database(app)
-        server = start_server(app, port) if needs_server else None
+        server = start_server(app, port, tls_port) if needs_server else None
         try:
             res = subprocess.run([sys.executable, script], cwd=app, env=env,
                                  capture_output=True, text=True, encoding="utf-8", errors="replace")

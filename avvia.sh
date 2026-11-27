@@ -17,11 +17,9 @@ else
     PYTHON="python"
 fi
 
-echo "Server in ascolto su http://0.0.0.0:8000"
+echo "Questo computer:     http://localhost:8000"
+echo "Altri dispositivi:   https://IP-DEL-COMPUTER:8443  (avviso del certificato da accettare)"
 echo "Premi CTRL+C per fermare."
 echo
 
-exec "$PYTHON" -m uvicorn main:app --host 0.0.0.0 --port 8000
-
-# Per la modalita sviluppo (ricarica automatica), sostituire la riga sopra con:
-# exec "$PYTHON" -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+exec "$PYTHON" server.py

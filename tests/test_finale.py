@@ -18,6 +18,11 @@ def finale_display():
     return json.loads(req("/display/api/1/schermo/1/stato")[2])
 
 
+def fotografia():
+    """Classifica finale salvata dall'Admin."""
+    return json.loads(db("SELECT final_ranking_json FROM competitions WHERE id=1")[0][0])
+
+
 req("/regia/1/display/aggiungi", {"name": "Schermo"})
 req("/admin/gara/1/avvia", {})
 req("/inserimento/1/soluzione", {"team_number": "01", "problem_number": "01", "answer": "0042"})
@@ -40,7 +45,7 @@ check("regia: invito a calcolare la classifica dall'Admin", "calcolarla dalla pa
 st, h, _ = req("/admin/gara/1/calcola-finale", {})
 check("calcolo: esito in verde", msg(h["location"], "esito") == "Classifica finale calcolata.")
 d = finale_display()
-prima = [t["id"] for t in d["final_ranking"]]
+prima = [t["id"] for t in fotografia()]
 check("display: classifica finale disponibile e uguale a quella calcolata",
       d["final_ready"] and prima == [t["id"] for t in admin_stato()["teams"]])
 g = req("/admin/gara/1")[2]
@@ -57,7 +62,7 @@ check("la classifica del momento cambia (squadra 03 prima): le consegne post-gar
       admin_stato()["teams"][0]["id"] == squadra3, str([(t["number"], t["total"]) for t in admin_stato()["teams"]]))
 check("consegne post-gara registrate al momento in cui la gara è finita (non a 10:00)",
       db("SELECT MAX(game_seconds) FROM submissions WHERE is_post_game=1")[0][0] < 60)
-check("la classifica finale dei display NON cambia da sola", [t["id"] for t in finale_display()["final_ranking"]] == prima)
+check("la classifica finale NON cambia da sola", [t["id"] for t in fotografia()] == prima)
 check("regia: 'Annulla ultima' disattivato prima di rivelare", re.search(r"\sdisabled>\s*↶ Annulla ultima", req("/regia/1")[2]) is not None)
 req("/regia/1/rivela", {})
 req("/regia/1/rivela", {})
@@ -73,7 +78,7 @@ st, h, _ = req("/admin/gara/1/calcola-finale", {})
 check("ricalcolo: esito che segnala la rivelazione azzerata",
       "ricalcolata" in msg(h["location"], "esito") and "ripartirà dall'inizio" in msg(h["location"], "esito"))
 check("ricalcolo: la classifica finale ora include le consegne in ritardo, rivelazione a 0",
-      finale_display()["final_ranking"][0]["id"] == squadra3 and admin_stato()["revealed_positions"] == 0)
+      fotografia()[0]["id"] == squadra3 and admin_stato()["revealed_positions"] == 0)
 req("/regia/1/rivela-indietro", {})
 check("'Annulla ultima' con nulla di rivelato resta a 0", admin_stato()["revealed_positions"] == 0)
 

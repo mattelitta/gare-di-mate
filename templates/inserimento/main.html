@@ -1,13 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Inserimento — {{ comp.name }}{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-4">
-  <div>
-    <h1 class="text-xl font-bold">{{ comp.name }}</h1>
+{# Nome della gara grande e centrato: con più gare in corso si vede subito su quale si sta inserendo. #}
+<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mb-4">
+  <a href="/inserimento/" class="justify-self-start text-sm text-gray-500 hover:underline whitespace-nowrap">← Tutte le gare</a>
+  <div class="text-center">
+    <h1 class="text-3xl font-bold leading-tight">{{ comp.name }}</h1>
     {% if comp.date %}<span class="text-sm text-gray-500">{{ comp.date }}</span>{% endif %}
   </div>
   <a href="/inserimento/{{ comp.id }}/consegne"
-     class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">📋 Storico consegne</a>
+     class="justify-self-end text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded whitespace-nowrap">📋 Storico consegne</a>
 </div>
 
 {% if request.query_params.get('errore') %}
@@ -74,14 +76,14 @@
       <div>
         <label class="block text-sm font-medium mb-1">ID Squadra</label>
         <input x-ref="j_squadra" x-model="jSquadra" @input="errJolly = ''" name="team_number" type="text"
-               inputmode="numeric" maxlength="2" placeholder="01" autofocus oninput="autoAvanza(this)"
+               inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
                :class="campoJolly === 'squadra' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">ID Problema</label>
         <input x-ref="j_problema" x-model="jProblema" @input="errJolly = ''" name="problem_number" type="text"
-               inputmode="numeric" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
+               inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
                :class="campoJolly === 'problema' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
@@ -142,21 +144,21 @@
       <div>
         <label class="block text-sm font-medium mb-1">ID Squadra</label>
         <input x-ref="s_squadra" x-model="squadra" @input="errSol = ''" name="team_number" type="text"
-               inputmode="numeric" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
+               inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
                :class="campoSol === 'squadra' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">ID Problema</label>
         <input x-ref="s_problema" x-model="problema" @input="errSol = ''" name="problem_number" type="text"
-               inputmode="numeric" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
+               inputmode="numeric" pattern="[0-9]*" maxlength="2" placeholder="01" oninput="autoAvanza(this)"
                :class="campoSol === 'problema' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-2xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Risposta</label>
         <input x-ref="s_risposta" x-model="risposta" @input="errSol = ''" name="answer" type="text"
-               inputmode="numeric" maxlength="4" placeholder="0000" oninput="autoAvanza(this)"
+               inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="0000" oninput="autoAvanza(this)"
                :class="campoSol === 'risposta' ? 'border-red-500 bg-red-50' : ''"
                class="w-full border-2 rounded-lg px-4 py-3 text-3xl font-mono text-center tracking-widest focus:border-green-500 outline-none">
       </div>
@@ -249,7 +251,13 @@
 </div>
 
 <script>
+function soloCifre(el) {
+  const pulito = el.value.replace(/\D/g, '');
+  if (pulito !== el.value) el.value = pulito;
+}
+
 function autoAvanza(el) {
+  soloCifre(el);
   if (el.value.length >= el.maxLength) {
     const inputs = Array.from(el.closest('form').querySelectorAll('input[maxlength]'));
     const next = inputs[inputs.indexOf(el) + 1];
@@ -315,6 +323,12 @@ function consegna() {
     get avviata() { return this.stato !== 'created'; },
     get puoInviare() { return this.avviata && !this.locked; },
     init() {
+      if (location.hash === '#risposte') {
+        this.$refs.s_squadra.focus();
+        history.replaceState(null, '', location.pathname + location.search);
+      } else {
+        this.$refs.j_squadra.focus();
+      }
       setInterval(() => { this.ora = Date.now(); }, 1000);
       setInterval(() => this.aggiorna(), 2000);
     },

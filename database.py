@@ -24,7 +24,7 @@ def get_db():
 def init_db() -> str:
     """Crea o aggiorna il database (vedi migrations.py). Può sollevare MigrationError
     o SchemaTooNewError, con un messaggio già adatto all'utente."""
-    from models import Competition, Team, Problem, Submission, JollyChoice, Penalty, Display, Setting, TimeAdjustment  # noqa
+    from models import Competition, Team, Problem, Submission, JollyChoice, Penalty, Display, Setting, TimeAdjustment, AccessSession  # noqa
     import migrations
     return migrations.run(engine, DB_PATH, lambda: Base.metadata.create_all(bind=engine))
 

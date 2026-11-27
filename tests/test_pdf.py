@@ -77,8 +77,8 @@ if os.environ.get("GDM_PDF_OUT"):
 
 if REMOTE:
     remoto = opener()
-    req("/admin/password-accesso", {"password": "segreta"})
-    req("/accesso", {"password": "segreta", "next": "/inserimento/"}, op=remoto, base=REMOTE)
+    req("/admin/password-accesso", {"password": "segreta-123"})
+    req("/accesso", {"password": "segreta-123", "next": "/inserimento/"}, op=remoto, base=REMOTE)
     st, _, _ = req(PDF, op=remoto, base=REMOTE)
     check("dispositivo in rete: export non permesso", st in (303, 403))
 finish()

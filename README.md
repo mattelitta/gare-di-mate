@@ -18,7 +18,7 @@ Software di gestione per gare a squadre di matematica. Permette di amministrare 
 Solo per l'installazione da sorgente (l'installer Windows include già tutto):
 
 - Python 3.11+ (con Python 3.14 serve SQLAlchemy 2.1, già indicato in `requirements.txt`)
-- Dipendenze in `requirements.txt`: `fastapi`, `uvicorn[standard]`, `sqlalchemy`, `jinja2`, `python-multipart`, `itsdangerous`, `fpdf2` (esportazione PDF)
+- Dipendenze in `requirements.txt`: `fastapi`, `uvicorn[standard]`, `sqlalchemy`, `jinja2`, `python-multipart`, `itsdangerous`, `fpdf2` (esportazione PDF), `cryptography` (certificato HTTPS)
 
 ## Installazione su Windows (consigliata)
 
@@ -28,7 +28,7 @@ Solo per l'installazione da sorgente (l'installer Windows include già tutto):
    mostra l'indirizzo per gli altri dispositivi e apre il pannello Admin nel browser.
 3. Tenere aperta la finestra per tutta la gara: chiudendola il server si ferma.
 
-L'installer configura da solo il firewall di Windows (solo per Gare di Mate, porta 8000,
+L'installer configura da solo il firewall di Windows (solo per Gare di Mate, porte 8000 e 8443,
 dispositivi della rete locale). I dati sono salvati in `Documenti\Gare di Mate` e restano
 anche disinstallando il programma.
 
@@ -80,7 +80,7 @@ avvia.bat
 
 **Manuale** (qualsiasi sistema):
 ```bash
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+python server.py            # porte predefinite: 8000 (HTTP) e 8443 (HTTPS)
 ```
 
 Gli script rilevano automaticamente un eventuale ambiente virtuale nella cartella `venv/`.
@@ -89,18 +89,63 @@ Il server sarà accessibile su:
 
 | Client | URL | Accesso |
 |---|---|---|
-| Admin | `http://localhost:8000/admin/` | Solo dal dispositivo host |
-| Inserimento | `http://<ip-host>:8000/inserimento/` | Host + LAN con password di accesso |
-| Regia | `http://localhost:8000/regia/` | Solo dal dispositivo host |
-| Display | `http://<ip-host>:8000/display/` | Host + LAN con password di accesso |
+| Admin | `http://localhost:8000/admin/` | Solo dal computer server |
+| Regia | `http://localhost:8000/regia/` | Solo dal computer server |
+| Inserimento | `https://<ip-host>:8443/inserimento/` | Computer server + rete locale con password |
+| Display | `https://<ip-host>:8443/display/` | Computer server + rete locale con password |
+
+La porta 8000 serve il computer server (indirizzo `localhost`, il traffico non esce dal computer).
+Un altro dispositivo che la usa viene solo rimandato all'indirizzo HTTPS.
 
 ### Accesso dagli altri dispositivi
 
-La home Admin mostra l'indirizzo a cui collegarsi e permette di impostare la **password di accesso**.
-Ogni dispositivo diverso dall'host deve inserirla una volta (resta valida 30 giorni nel browser)
-e può poi usare solo **Inserimento** e **Display** (Admin e Regia restano sul dispositivo host).
-Finché la password non è impostata, gli altri dispositivi non possono accedere.
-Cambiandola, tutti i dispositivi collegati dovranno rifare l'accesso.
+La home Admin (e la finestra di avvio) mostra l'indirizzo a cui collegarsi e permette di impostare
+la **password di accesso** (almeno 8 caratteri). Ogni dispositivo diverso dal computer server deve
+inserirla una volta e può poi usare solo **Inserimento** e **Display** (Admin e Regia restano sul
+computer server). Finché la password non è impostata, gli altri dispositivi non possono accedere.
+
+- **Collegamento cifrato (HTTPS).** Al primo avvio Gare di Mate crea un certificato per gli
+  indirizzi di questo computer (cartella `certificato` nei dati; la chiave privata non lascia mai il
+  computer). Non essendo rilasciato da un ente pubblico, alla prima apertura il browser mostra un
+  avviso di sicurezza: è normale, si accetta una volta per dispositivo (e di nuovo se cambia
+  l'indirizzo del computer). Per controllare di essere collegati proprio al computer server,
+  l'impronta SHA-256 del certificato, nei dettagli del certificato nel browser, deve coincidere con
+  quella mostrata nella home Admin e nella finestra di avvio.
+- **Un accesso per dispositivo.** Ogni accesso con la password crea una sessione propria (valida
+  finché il dispositivo la usa, scade dopo 30 giorni di inattività). In *Dispositivi collegati*
+  (home Admin) si vedono indirizzo, browser e ultima attività di ciascuno e si può scollegare un
+  singolo dispositivo o tutti. Cambiando la password vengono scollegati tutti.
+- **Tentativi limitati.** Dopo 5 password errate un indirizzo è bloccato per un minuto (poi per
+  tempi crescenti); con molti errori da più indirizzi gli accessi sono sospesi per un minuto. Durante
+  un blocco è rifiutata anche la password giusta. I blocchi e gli eventi recenti compaiono in
+  *Dispositivi collegati*, con il tasto per togliere i blocchi.
+
+### Sicurezza della rete
+
+Gare di Mate protegge la gara anche da chi è collegato alla stessa rete e conosce il programma:
+
+- il traffico tra il server e gli altri dispositivi è cifrato (HTTPS): non si possono leggere
+  password, risposte corrette, consegne o classifiche intercettando i pacchetti;
+- senza la password non si apre nulla, e un dispositivo scollegato dall'Admin non rientra;
+- Admin e Regia rispondono solo al computer server;
+- ciò che i display non mostrano non viene nemmeno inviato: con l'oscuramento nessun punteggio, e
+  della classifica finale solo le posizioni già svelate;
+- moduli inviati da altri siti, pagine incorporate in altri siti e nomi di server falsi sono rifiutati.
+
+Limiti da conoscere:
+
+- chi è sulla stessa rete può sempre **disturbarla** (per esempio disturbando il Wi-Fi o
+  sovraccaricando il server): nessun programma lo impedisce. Il computer server continua comunque
+  a funzionare, e da lì si possono inserire le consegne;
+- l'avviso del certificato si accetta "sulla fiducia": chi controlla attivamente la rete potrebbe
+  presentare un proprio certificato al suo posto. Il confronto dell'impronta (vedi sopra) svela il
+  trucco; accettare l'avviso solo al primo collegamento, e insospettirsi se ricompare senza che sia
+  cambiato l'indirizzo del computer.
+
+Consigli per il giorno della gara: un router dedicato con una password Wi-Fi nota solo allo staff
+(WPA2 o WPA3), il computer server collegato via cavo, e se il router lo permette l'isolamento dei
+client Wi-Fi (i tablet raggiungono il server ma non si vedono tra loro). Una password di accesso
+lunga, diversa da quella del Wi-Fi, comunicata solo a chi inserisce.
 
 ## Flusso di una gara
 
@@ -157,10 +202,12 @@ Il **tema** (chiaro, predefinito e adatto alla proiezione, oppure scuro) si sceg
 
 ```
 gare-di-mate/
-├── main.py              # Applicazione FastAPI, controllo accesso, broadcast loop cache
+├── main.py              # Applicazione FastAPI, controlli di sicurezza e di accesso, broadcast loop cache
+├── server.py            # Avvio dei due server (HTTP per il computer server, HTTPS per la rete)
+├── tls.py               # Certificato HTTPS autofirmato per gli indirizzi del computer
 ├── launcher.py          # Finestra di avvio (eseguibile Windows)
 ├── paths.py             # Percorsi di template, file statici e database
-├── auth.py              # Password di accesso per i dispositivi in rete
+├── auth.py              # Password, sessioni per dispositivo e permessi, limite ai tentativi
 ├── database.py          # Setup SQLite / SQLAlchemy, eager loading
 ├── migrations.py        # Aggiornamento automatico della struttura del database (con backup)
 ├── tempo.py             # Tempo di gara: ripresa dopo un crash e avanzamento manuale

@@ -73,6 +73,9 @@ MIGRATIONS = [
     lambda c: _add_column(c, "competitions", "starting_score", "INTEGER"),                 # 8
     lambda c: _add_column(c, "competitions", "jolly_reveal", "VARCHAR(10) DEFAULT 'immediate'"),  # 9
     lambda c: _add_column(c, "submissions", "added_by_admin", "BOOLEAN DEFAULT 0"),          # 10
+    # 11: accessi per dispositivo (tabella access_sessions, creata da create_all); il vecchio segreto
+    # del cookie unico non serve più, e i dispositivi rifanno l'accesso una volta.
+    lambda c: c.exec_driver_sql("DELETE FROM settings WHERE key = 'cookie_secret'"),          # 11
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
 

@@ -4,6 +4,7 @@ import http.cookiejar
 import os
 import socket
 import sqlite3
+import ssl
 import subprocess
 import sys
 import time
@@ -14,9 +15,12 @@ from pathlib import Path
 
 APP = Path(os.environ["GDM_APP"])
 PORT = int(os.environ["GDM_PORT"])
+TLS_PORT = int(os.environ.get("GDM_TLS_PORT", "0"))
 BASE = f"http://127.0.0.1:{PORT}"
 REMOTE_IP = os.environ.get("GDM_REMOTE_IP", "")
-REMOTE = f"http://{REMOTE_IP}:{PORT}" if REMOTE_IP else ""  # simula un dispositivo in rete
+REMOTE = f"https://{REMOTE_IP}:{TLS_PORT}" if REMOTE_IP else ""  # simula un dispositivo in rete
+REMOTE_HTTP = f"http://{REMOTE_IP}:{PORT}" if REMOTE_IP else ""  # lo stesso dispositivo sulla porta HTTP
+CERT = APP / "certificato" / "certificato.pem"
 DB = APP / "gare.db"
 
 sys.path.insert(0, str(APP))
@@ -28,13 +32,34 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def opener():
+def tls_context(verify: bool = True) -> ssl.SSLContext:
+    """Contesto HTTPS che si fida solo del certificato del server di prova (e ne controlla gli indirizzi)."""
+    if not verify or not CERT.exists():
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        return ctx
+    return ssl.create_default_context(cafile=str(CERT))
+
+
+def opener(verify: bool = True):
     """Un "browser": cookie propri, redirect non seguiti (per controllarli)."""
     return urllib.request.build_opener(
-        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), _NoRedirect())
+        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()), _NoRedirect(),
+        urllib.request.HTTPSHandler(context=tls_context(verify)))
 
 
-_default = opener()
+class _Lazy:
+    """Il "browser" predefinito, creato al primo uso (quando il certificato del server esiste)."""
+    _op = None
+
+    def open(self, *a, **k):
+        if _Lazy._op is None:
+            _Lazy._op = opener()
+        return _Lazy._op.open(*a, **k)
+
+
+_default = _Lazy()
 
 
 def req(path, data=None, op=None, base=None):
@@ -69,7 +94,7 @@ def wait_server(base=None):
 
 def start_server():
     log = open(APP / "server.log", "a", encoding="utf-8")
-    p = subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(PORT)],
+    p = subprocess.Popen([sys.executable, "server.py", "--http-port", str(PORT), "--https-port", str(TLS_PORT)],
                          cwd=APP, stdout=log, stderr=log)
     wait_server()
     return p

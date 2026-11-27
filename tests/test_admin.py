@@ -130,9 +130,11 @@ css = req("/static/css/scuro.css")[2]
 check("foglio scuro: sfondo pagina scuro anche con la classe bg-gray-100 del body",
       "html.scuro body.bg-gray-100" in css and "color-scheme: dark" in css)
 
-# --- host riconosciuto anche dal suo IP di rete ---
-for base in (BASE, f"http://{lan_ip()}:{PORT}"):
-    st, _, home = req("/", base=base)
-    check(f"{base}: barra completa e Admin raggiungibile",
-          'href="/regia/"' in home and 'href="/esci"' not in home and req("/admin/", base=base)[0] == 200)
+# --- il computer server è riconosciuto solo da 127.0.0.1 ---
+st, _, home = req("/", base=BASE)
+check("127.0.0.1: barra completa e Admin raggiungibile",
+      'href="/regia/"' in home and 'href="/esci"' not in home and req("/admin/", base=BASE)[0] == 200)
+st, h, _ = req("/admin/", base=f"http://{lan_ip()}:{PORT}")
+check("dal suo IP di rete il server è un dispositivo come gli altri: rimandato all'indirizzo HTTPS",
+      st == 301 and h["location"].startswith(f"https://{lan_ip()}:"))
 finish()

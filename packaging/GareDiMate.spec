@@ -16,7 +16,7 @@ a = Analysis(
         (ICON, "."),
         (str(ROOT / "VERSION"), "."),
     ] + collect_data_files("fpdf"),  # dati di fpdf2 (esportazione PDF)
-    hiddenimports=collect_submodules("uvicorn") + ["esporta_pdf"],  # importato dentro una funzione
+    hiddenimports=collect_submodules("uvicorn") + ["esporta_pdf", "tls"],  # importati dentro una funzione
     excludes=["test_data", "test_live", "setup_test"],
 )
 pyz = PYZ(a.pure)

@@ -32,7 +32,7 @@
       </div>
       <div>
         <label class="block text-sm font-medium mb-1">Risposta</label>
-        <input name="answer" type="text" maxlength="4" value="{{ sub.answer }}"
+        <input name="answer" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" value="{{ sub.answer }}" oninput="this.value = this.value.replace(/\D/g, '')"
                class="w-full border-2 rounded-lg px-4 py-3 text-3xl font-mono text-center tracking-widest focus:border-blue-500 outline-none">
       </div>
       <div class="flex gap-3 pt-2">

@@ -24,7 +24,7 @@ if errorlevel 1 (
 )
 
 rem Le dipendenze devono esserci tutte, altrimenti l'eseguibile nascerebbe senza (es. l'esportazione PDF).
-%PYTHON% -c "import fastapi, uvicorn, sqlalchemy, jinja2, multipart, itsdangerous, fpdf" >nul 2>&1
+%PYTHON% -c "import fastapi, uvicorn, sqlalchemy, jinja2, multipart, itsdangerous, fpdf, cryptography" >nul 2>&1
 if errorlevel 1 (
     echo Mancano alcune librerie. Installarle con:  %PYTHON% -m pip install -r requirements.txt
     exit /b 1

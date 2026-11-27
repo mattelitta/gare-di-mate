@@ -16,14 +16,12 @@ if exist "venv\Scripts\python.exe" (
     set PYTHON=py
 )
 
-echo Server in ascolto su http://0.0.0.0:8000
+echo Questo computer:     http://localhost:8000
+echo Altri dispositivi:   https://IP-DEL-COMPUTER:8443  (avviso del certificato da accettare)
 echo Premi CTRL+C per fermare.
 echo.
 
-%PYTHON% -m uvicorn main:app --host 0.0.0.0 --port 8000
-
-rem Per la modalita sviluppo (ricarica automatica), sostituire la riga sopra con:
-rem %PYTHON% -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+%PYTHON% server.py
 
 echo.
 echo Server arrestato.

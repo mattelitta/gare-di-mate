@@ -259,3 +259,23 @@ class Display(Base):
     text_scale: Mapped[int] = mapped_column(Integer, default=3)  # 1=minimo … 5=massimo
 
     competition: Mapped["Competition"] = relationship("Competition", back_populates="displays")
+
+
+class AccessSession(Base):
+    """Un accesso di un dispositivo della rete: uno per ogni login riuscito, revocabile dall'Admin.
+
+    Il browser conserva solo il token casuale; qui c'è la sua impronta SHA-256, quindi chi legge
+    il database non può usare i token. `role` e `scope` preparano gli accessi parziali futuri
+    (es. solo display, o solo alcuni display): oggi ogni accesso con la password è 'completo'.
+    """
+    __tablename__ = "access_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    role: Mapped[str] = mapped_column(String(20), default="completo")
+    scope: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON, per accessi parziali
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_seen: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    ip: Mapped[str] = mapped_column(String(45), default="")
+    user_agent: Mapped[str] = mapped_column(String(300), default="")
+    device_id: Mapped[str | None] = mapped_column(String(64), nullable=True)

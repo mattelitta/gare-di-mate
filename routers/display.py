@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+import auth
 from cache import state_cache
 from database import get_db, load_comp_full
 from engine import compute_state, rank_teams
@@ -16,10 +17,7 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
 
 def get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    return auth.client_ip(request) or "unknown"
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -68,6 +66,19 @@ async def display_view(
     })
 
 
+def _final_svelata(comp: Competition) -> list[dict]:
+    """Classifica finale come la vedono i display: le squadre non ancora svelate sono solo segnaposto
+    (posizione occupata, senza nome né punti); le ospiti compaiono dalla prima posizione svelata."""
+    teams = comp.final_ranking or []
+    in_gara = [t for t in teams if not t.get("is_guest")]
+    svelate = max(0, min(comp.revealed_positions or 0, len(in_gara)))
+    da = len(in_gara) - svelate
+    out = [t if i >= da else {"is_guest": False, "hidden": True} for i, t in enumerate(in_gara)]
+    if svelate:
+        out += [t for t in teams if t.get("is_guest")]
+    return out
+
+
 @router.get("/api/{comp_id}/schermo/{display_id}/stato")
 async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends(get_db)):
     """JSON endpoint polled by display viewer to get current view and data."""
@@ -103,9 +114,9 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
     else:
         prob_states, team_scores = cached
 
-    ranked = rank_teams(team_scores, comp)
+    ranked = rank_teams(team_scores, comp) if not blackout_active else []
 
-    # Serialize team scores
+    # Serialize team scores (con l'oscuramento nessuna: le viste che le usano sono oscurate)
     teams_data = []
     for i, ts in enumerate(ranked):
         teams_data.append({
@@ -130,7 +141,7 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
             "number": ps.number,
             "name": ps.name,
             "value": ps.value,
-            "num_solvers": len(ps.solvers),
+            "num_solvers": None if blackout_active else len(ps.solvers),
         }
         for ps in sorted(prob_states.values(), key=lambda x: x.number)
     ]
@@ -152,7 +163,7 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
         "num_qualified": comp.num_qualified,
         "revealed_positions": comp.revealed_positions,
         "final_ready": comp.final_ranking_json is not None,
-        "final_ranking": comp.final_ranking or [],  # fotografia calcolata dall'Admin
+        "final_ranking": _final_svelata(comp),  # fotografia calcolata dall'Admin, solo la parte svelata
         "teams": teams_data,
         "problems": problems_data,
     }

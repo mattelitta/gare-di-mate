@@ -6,11 +6,24 @@
   <a href="/admin/crea" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800">+ Nuova gara</a>
 </div>
 
-<div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 space-y-3">
-  <div class="flex items-center gap-3">
+{% if request.query_params.get('errore') %}
+<div class="bg-red-100 border border-red-300 text-red-800 rounded-lg px-4 py-3 mb-4">{{ request.query_params.get('errore') }}</div>
+{% endif %}
+{% if request.query_params.get('esito') %}
+<div class="bg-green-100 border border-green-300 text-green-800 rounded-lg px-4 py-3 mb-4">✓ {{ request.query_params.get('esito') }}</div>
+{% endif %}
+
+<div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-4 space-y-3">
+  <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
     <span class="text-blue-500 text-lg">🌐</span>
     <span class="text-sm text-blue-700 font-medium">Gli altri dispositivi si collegano su:</span>
-    <span class="font-mono font-bold text-blue-900 text-base">http://{{ local_ip }}:8000</span>
+    <span class="font-mono font-bold text-blue-900 text-base">https://{{ local_ip }}:{{ https_port }}</span>
+    <span class="text-xs text-blue-700 basis-full pl-8">
+      Collegamento cifrato. Alla prima apertura il browser mostra un avviso di sicurezza: è normale
+      (il certificato è creato da Gare di Mate), si accetta una volta per dispositivo.
+      {% if impronta %}<br>Per controllare che sia proprio questo computer, l'impronta SHA-256 del certificato
+      (nei dettagli del certificato nel browser) deve iniziare con <span class="font-mono font-semibold">{{ impronta[:23] }}</span>.{% endif %}
+    </span>
   </div>
   <div class="flex flex-wrap items-center gap-3">
     <span class="text-blue-500 text-lg">🔑</span>
@@ -21,7 +34,7 @@
     {% endif %}
     <form method="post" action="/admin/password-accesso" class="flex gap-2 ml-auto"
           {% if access_password_set %}data-conferma="Cambiare la password? Tutti i dispositivi collegati dovranno rifare l'accesso." data-conferma-ok="Cambia password"{% endif %}>
-      <input name="password" type="password" required minlength="4" placeholder="Nuova password"
+      <input name="password" type="password" required minlength="{{ min_password }}" placeholder="Nuova password (min. {{ min_password }})"
              class="border rounded px-3 py-1.5 text-sm">
       <button class="bg-blue-700 text-white px-3 py-1.5 rounded text-sm hover:bg-blue-800">
         {% if access_password_set %}Cambia{% else %}Imposta{% endif %}
@@ -29,6 +42,70 @@
     </form>
   </div>
 </div>
+
+<details id="sicurezza" class="bg-white rounded-lg shadow mb-6 scroll-mt-4"
+         {% if request.query_params.get('esito') or request.query_params.get('errore') or blocchi %}open{% endif %}>
+  <summary class="px-4 py-3 cursor-pointer select-none flex flex-wrap items-center gap-2">
+    <span class="font-semibold">🔒 Dispositivi collegati ({{ sessioni|length }})</span>
+    {% if blocchi %}<span class="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">tentativi di accesso bloccati</span>{% endif %}
+    <span class="text-xs text-gray-500">ogni accesso con la password è un dispositivo a sé, scollegabile da qui</span>
+  </summary>
+  <div class="px-4 pb-4 space-y-4">
+    {% if sessioni %}
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-gray-500 border-b">
+        <th class="py-1.5 pr-3 font-medium">Indirizzo</th><th class="py-1.5 pr-3 font-medium">Dispositivo</th>
+        <th class="py-1.5 pr-3 font-medium">Accesso</th><th class="py-1.5 pr-3 font-medium">Ultima attività</th>
+        <th class="py-1.5 pr-3 font-medium">Permessi</th><th></th>
+      </tr></thead>
+      <tbody class="divide-y">
+      {% for r in sessioni %}
+        <tr>
+          <td class="py-1.5 pr-3 font-mono">{{ r.s.ip }}</td>
+          <td class="py-1.5 pr-3">{{ r.browser }}</td>
+          <td class="py-1.5 pr-3 text-gray-600">{{ ora_locale(r.s.created_at) }}</td>
+          <td class="py-1.5 pr-3 text-gray-600">{{ ora_locale(r.s.last_seen) }}</td>
+          <td class="py-1.5 pr-3 text-gray-600">{{ r.ruolo }}</td>
+          <td class="py-1.5 text-right">
+            <form method="post" action="/admin/dispositivi/{{ r.s.id }}/scollega"
+                  data-conferma="Scollegare il dispositivo {{ r.s.ip }} ({{ r.browser }})?&#10;&#10;Per rientrare dovrà rifare l'accesso con la password." data-conferma-ok="Scollega">
+              <button class="text-red-600 hover:underline text-sm">Scollega</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <form method="post" action="/admin/dispositivi/scollega-tutti"
+          data-conferma="Scollegare tutti i dispositivi?&#10;&#10;Dovranno rifare l'accesso con la password." data-conferma-ok="Scollega tutti">
+      <button class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">Scollega tutti</button>
+    </form>
+    {% else %}
+    <p class="text-sm text-gray-500">Nessun dispositivo collegato.</p>
+    {% endif %}
+
+    {% if blocchi %}
+    <div class="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm flex flex-wrap items-center gap-3">
+      <span class="text-red-800">Accesso bloccato per troppi tentativi errati:
+        {% for ip, sec in blocchi %}<span class="font-mono">{{ ip }}</span> ({{ sec }} s){% if not loop.last %}, {% endif %}{% endfor %}</span>
+      <form method="post" action="/admin/sicurezza/sblocca" class="ml-auto">
+        <button class="bg-white border border-red-300 text-red-700 hover:bg-red-50 px-3 py-1 rounded text-sm">Togli i blocchi</button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if eventi %}
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Eventi recenti</p>
+      <ul class="text-sm space-y-0.5">
+        {% for quando, testo in eventi %}
+        <li><span class="font-mono text-gray-500 text-xs mr-2">{{ quando.strftime('%H:%M:%S') }}</span>{{ testo }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+</details>
 
 {% if comps %}
 <div class="space-y-3">

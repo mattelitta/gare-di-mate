@@ -34,8 +34,8 @@ check("Admin: pannello presente, tempo proposto = tempo attuale (3 min)",
 
 if REMOTE:
     remoto = opener()
-    req("/admin/password-accesso", {"password": "segreta"})
-    req("/accesso", {"password": "segreta", "next": "/inserimento/"}, op=remoto, base=REMOTE)
+    req("/admin/password-accesso", {"password": "segreta-123"})
+    req("/accesso", {"password": "segreta-123", "next": "/inserimento/"}, op=remoto, base=REMOTE)
     st, _, b = req(C, op=remoto, base=REMOTE)
     check("dispositivo in rete: storico sì, pannello no", st == 200 and PANNELLO not in b)
     st, _, _ = aggiungi(1, 1, risposta[1], 1, 0, op=remoto, base=REMOTE)

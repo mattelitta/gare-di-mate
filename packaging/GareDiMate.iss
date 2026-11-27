@@ -57,9 +57,9 @@ Name: "{group}\Disinstalla {#AppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Run]
-; Regola firewall: solo questo programma, solo porta 8000, solo dispositivi della rete locale.
+; Regola firewall: solo questo programma, solo porte 8000 (rimando) e 8443 (HTTPS), solo dispositivi della rete locale.
 Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall delete rule name=""{#AppName}"""; Flags: runhidden
-Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""{#AppName}"" dir=in action=allow program=""{app}\{#AppExe}"" protocol=TCP localport=8000 remoteip=localsubnet enable=yes profile=any"; Flags: runhidden; StatusMsg: "Configurazione del firewall..."
+Filename: "{sys}\netsh.exe"; Parameters: "advfirewall firewall add rule name=""{#AppName}"" dir=in action=allow program=""{app}\{#AppExe}"" protocol=TCP localport=8000,8443 remoteip=localsubnet enable=yes profile=any"; Flags: runhidden; StatusMsg: "Configurazione del firewall..."
 Filename: "{app}\{#AppExe}"; Description: "Avvia {#AppName} adesso"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [UninstallRun]

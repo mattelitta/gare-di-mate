@@ -11,7 +11,10 @@ from tkinter import messagebox
 
 from paths import BASE_DIR, DATA_DIR
 
-PORT = 8000
+import server  # noqa: E402  (porte e avvio dei due server)
+
+PORT = server.HTTP_PORT          # questo computer (Admin, Regia)
+HTTPS_PORT = server.HTTPS_PORT   # gli altri dispositivi, cifrata
 LOCAL_URL = f"http://localhost:{PORT}"
 LOG_PATH = DATA_DIR / "gare-di-mate.log"
 
@@ -35,10 +38,10 @@ def app_version() -> str:
         return ""
 
 
-def port_is_free() -> bool:
+def port_is_free(port: int = PORT) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            s.bind(("0.0.0.0", PORT))
+            s.bind(("0.0.0.0", port))
             return True
         except OSError:
             return False
@@ -55,7 +58,7 @@ def our_server_responds() -> bool:
 class Launcher:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.server = None
+        self.servers = None
         self.thread = None
         self.browser_opened = False
         self.closing = False
@@ -82,6 +85,11 @@ class Launcher:
         self.url_var = tk.StringVar(value="…")
         tk.Label(row, textvariable=self.url_var, font=("Consolas", 18, "bold")).pack(side="left")
         tk.Button(row, text="Copia", font=(FONT, 11), command=self.copy_url).pack(side="left", padx=(8, 0))
+        tk.Label(root, font=(FONT, 10), fg="#555555", justify="center",
+                 text="Collegamento cifrato: alla prima apertura il browser mostra un avviso\n"
+                      "di sicurezza. È normale: accettarlo una volta per dispositivo.").pack(**pad)
+        self.fp_var = tk.StringVar(value="")
+        tk.Label(root, textvariable=self.fp_var, font=("Consolas", 9), fg="#888888").pack(pady=(2, 14), **pad)
 
         btn = {"font": (FONT, 13), "width": 28, "pady": 6}
         self.admin_btn = tk.Button(root, text="Apri pannello Admin", state="disabled",
@@ -106,7 +114,7 @@ class Launcher:
     def refresh_ip(self):
         from auth import get_local_ip
         ip = get_local_ip()
-        self.url_var.set(f"http://{ip}:{PORT}" if ip != "N/D" else "rete non disponibile")
+        self.url_var.set(f"https://{ip}:{HTTPS_PORT}" if ip != "N/D" else "rete non disponibile")
         self.root.after(10_000, self.refresh_ip)
 
     def copy_url(self):
@@ -134,11 +142,12 @@ class Launcher:
                 logging.exception("Database non utilizzabile")
                 self.fatal_error = str(e)
                 return
-            import uvicorn
+            import tls
             from main import app
-            config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_config=None)
-            self.server = uvicorn.Server(config)
-            self.server.run()
+            self.servers = server.create_servers(app, log_config=None)
+            fp = tls.fingerprint()
+            self.fp_var.set(f"Impronta del certificato: {fp[:23]}…" if fp else "")
+            server.run(self.servers)
         except Exception:
             logging.exception("Errore del server")
 
@@ -151,7 +160,7 @@ class Launcher:
                                  "Il server si è fermato per un errore.\n\n"
                                  f"Dettagli nel file:\n{LOG_PATH}")
             return
-        if self.server is not None and self.server.started:
+        if self.servers is not None and server.started(self.servers):
             self.set_status("Il server è attivo", GREEN)
             self.admin_btn.config(state="normal")
             if not self.browser_opened:
@@ -162,7 +171,7 @@ class Launcher:
         self.root.after(300, self.check_ready)
 
     def on_close(self):
-        if self.server is not None and self.server.started:
+        if self.servers is not None and server.started(self.servers):
             if not messagebox.askyesno("Chiudere Gare di Mate?",
                                        "Chiudendo, il server si ferma e i dispositivi collegati "
                                        "non riceveranno più aggiornamenti.\n\nChiudere?"):
@@ -170,7 +179,7 @@ class Launcher:
             self.closing = True
             self.set_status("Chiusura in corso…", ORANGE)
             self.root.update()
-            self.server.should_exit = True
+            server.stop(self.servers)
             self.thread.join(timeout=10)
         self.root.destroy()
 
@@ -200,14 +209,14 @@ def main():
     except Exception:
         pass
     root = tk.Tk()
-    if not port_is_free():
+    if not port_is_free(PORT) or not port_is_free(HTTPS_PORT):
         root.withdraw()
         if our_server_responds():
             messagebox.showinfo("Gare di Mate", "Gare di Mate è già aperto.\nApro il pannello Admin nel browser.")
             webbrowser.open(f"{LOCAL_URL}/admin/")
         else:
             messagebox.showerror("Gare di Mate",
-                                 f"La porta {PORT} è usata da un altro programma, "
+                                 f"La porta {PORT} o la {HTTPS_PORT} è usata da un altro programma, "
                                  "quindi Gare di Mate non può partire.\n\n"
                                  "Provare a riavviare il computer e poi riaprire Gare di Mate.")
         root.destroy()

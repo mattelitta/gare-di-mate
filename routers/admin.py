@@ -46,24 +46,83 @@ def require_localhost(request: Request):
         raise HTTPException(status_code=403, detail="Admin accessibile solo in locale")
 
 
+def _descrivi_browser(ua: str) -> str:
+    """Descrizione breve del dispositivo dal suo user-agent (solo per riconoscerlo nell'elenco)."""
+    ua_l = ua.lower()
+    sistema = next((nome for chiave, nome in [("ipad", "iPad"), ("iphone", "iPhone"), ("android", "Android"),
+                                              ("windows", "Windows"), ("mac os", "Mac"), ("cros", "ChromeOS"),
+                                              ("linux", "Linux")] if chiave in ua_l), "")
+    browser = next((nome for chiave, nome in [("edg/", "Edge"), ("firefox", "Firefox"), ("samsungbrowser", "Samsung Internet"),
+                                              ("chrome", "Chrome"), ("safari", "Safari")] if chiave in ua_l), "")
+    if not (sistema or browser):
+        return ua[:40] or "sconosciuto"
+    return f"{browser or 'Browser'}{' su ' + sistema if sistema else ''}"
+
+
+def _torna_alla_home(esito: str | None = None, errore: str | None = None) -> RedirectResponse:
+    query = f"?esito={quote(esito)}" if esito else (f"?errore={quote(errore)}" if errore else "")
+    return RedirectResponse(f"/admin/{query}#sicurezza" if query else "/admin/", status_code=303)
+
+
 # --- Competition list ---
 @router.get("/", response_class=HTMLResponse)
 async def admin_home(request: Request, db: Session = Depends(get_db)):
     require_localhost(request)
+    import tls
+    from models import AccessSession
     comps = db.query(Competition).order_by(Competition.created_at.desc()).all()
+    sessioni = db.query(AccessSession).order_by(AccessSession.last_seen.desc()).all()
     return templates.TemplateResponse("admin/home.html", {
         "request": request, "comps": comps, "local_ip": auth.get_local_ip(),
+        "https_port": getattr(request.app.state, "https_port", None) or 8443,
+        "impronta": tls.fingerprint(),
         "access_password_set": auth.password_is_set(db),
+        "min_password": auth.MIN_PASSWORD,
+        "sessioni": [{"s": s, "browser": _descrivi_browser(s.user_agent),
+                      "ruolo": auth.ROLE_LABELS.get(s.role, s.role)} for s in sessioni],
+        "eventi": auth.events.recent(15),
+        "blocchi": auth.limiter.active_locks(),
     })
 
 
 @router.post("/password-accesso")
 async def admin_password_accesso(request: Request, password: str = Form(...), db: Session = Depends(get_db)):
     require_localhost(request)
-    if len(password) < 4:
-        raise HTTPException(status_code=400, detail="La password deve avere almeno 4 caratteri")
+    if len(password) < auth.MIN_PASSWORD:
+        return _torna_alla_home(errore=f"La password deve avere almeno {auth.MIN_PASSWORD} caratteri.")
+    gia = auth.password_is_set(db)
     auth.set_password(db, password)
-    return RedirectResponse("/admin/", status_code=303)
+    return _torna_alla_home(esito="Password cambiata: tutti i dispositivi devono rifare l'accesso." if gia
+                            else "Password impostata.")
+
+
+@router.post("/dispositivi/{session_id}/scollega")
+async def admin_scollega(request: Request, session_id: int, db: Session = Depends(get_db)):
+    require_localhost(request)
+    from models import AccessSession
+    s = db.get(AccessSession, session_id)
+    if s is None:
+        return _torna_alla_home(errore="Dispositivo già scollegato.")
+    descr = f"{s.ip} ({_descrivi_browser(s.user_agent)})"
+    auth.revoke_session(db, session_id)
+    auth.events.add(f"{descr}: scollegato dall'Admin")
+    return _torna_alla_home(esito=f"Dispositivo {descr} scollegato: per rientrare deve rifare l'accesso.")
+
+
+@router.post("/dispositivi/scollega-tutti")
+async def admin_scollega_tutti(request: Request, db: Session = Depends(get_db)):
+    require_localhost(request)
+    auth.revoke_all(db)
+    auth.events.add("Tutti i dispositivi scollegati dall'Admin")
+    return _torna_alla_home(esito="Tutti i dispositivi sono stati scollegati.")
+
+
+@router.post("/sicurezza/sblocca")
+async def admin_sblocca(request: Request):
+    require_localhost(request)
+    auth.limiter.reset()
+    auth.events.add("Blocchi dei tentativi di accesso tolti dall'Admin")
+    return _torna_alla_home(esito="Blocchi tolti: tutti possono riprovare ad accedere.")
 
 
 # --- Create competition ---

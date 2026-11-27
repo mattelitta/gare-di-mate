@@ -70,4 +70,23 @@ st, h, _ = req(base, {"team_id": estranea, "problem_id": prob, "answer": "0042"}
 check("modifica con una squadra di un'altra gara rifiutata", "errore=" in h["location"])
 check("la consegna non è stata modificata", db("SELECT team_id, answer FROM submissions")[0][1] == "0042"
       and db("SELECT team_id FROM submissions")[0][0] != estranea)
+
+# --- solo cifre nei campi, e dopo una consegna il cursore torna sulle risposte ---
+pagina = req("/inserimento/1")[2]
+campi = re.findall(r'<input x-ref="(?:j|s)_\w+"[^>]*>', pagina)
+check("tutti i campi dell'inserimento: tastiera numerica e lettere tolte mentre si scrive",
+      len(campi) == 5 and all('pattern="[0-9]*"' in c and 'oninput="autoAvanza(this)"' in c for c in campi)
+      and "function soloCifre(el)" in pagina and "soloCifre(el);" in pagina)
+check("cursore iniziale scelto dalla pagina (jolly, o risposte dopo una consegna), non da autofocus",
+      "autofocus" not in pagina and "location.hash === '#risposte'" in pagina)
+st, h, _ = req("/inserimento/1/soluzione", {"team_number": "02", "problem_number": "02", "answer": "0001"})
+check("consegna registrata: si torna alla pagina sui campi delle risposte", h["location"] == "/inserimento/1#risposte")
+st, h, _ = req("/inserimento/1/soluzione", {"team_number": "77", "problem_number": "02", "answer": "0001"})
+check("consegna rifiutata dal server: avviso e cursore sulle risposte",
+      h["location"].endswith("#risposte") and "non esiste" in errore(h["location"]))
+st, h, _ = req("/inserimento/1/jolly", {"team_number": "03", "problem_number": "02"})
+check("dopo un jolly si resta sui campi dei jolly", "#risposte" not in h["location"])
+storico = req("/inserimento/1/consegne")[2]
+check("storico (aggiunta dell'Admin): anche lì solo cifre nella risposta",
+      re.search(r'<input name="answer"[^>]*pattern="\[0-9\]\*"[^>]*replace\(/\\D/g', storico) is not None)
 finish()

@@ -266,10 +266,12 @@ if s_final.get('final_ready') and s_final.get('insertions_locked'):
     ok("Classifica finale calcolata e inserimenti bloccati")
 else:
     fail(f"final_ready={s_final.get('final_ready')}  insertions_locked={s_final.get('insertions_locked')}"); errori += 1
-if s_disp and [t['id'] for t in s_disp.get('final_ranking', [])] == [t['id'] for t in s_final['teams']]:
-    ok("La classifica finale dei display coincide con quella calcolata")
+finale_disp = s_disp.get('final_ranking', []) if s_disp else []
+if finale_disp and all(t.get('hidden') for t in finale_disp if not t.get('is_guest')) \
+        and not any('name' in t for t in finale_disp):
+    ok("Prima della rivelazione i display ricevono solo segnaposto (nessun nome)")
 else:
-    fail("La classifica finale dei display non coincide"); errori += 1
+    fail("Classifica finale inviata ai display prima della rivelazione"); errori += 1
 post(f"/inserimento/{cid}/soluzione", {"team_number": "4", "problem_number": "3", "answer": "1024"})
 if get_json(f"/admin/api/gara/{cid}/stato")['teams'] == s_final['teams']:
     ok("Con gli inserimenti bloccati una nuova consegna non cambia nulla")
@@ -280,6 +282,11 @@ else:
 s_rev = get_json(f"/admin/api/gara/{cid}/stato")
 if s_rev and s_rev.get('revealed_positions') == non_guests_count:
     ok(f"Tutte le {non_guests_count} posizioni rivelate")
+    s_disp = get_json(f"/display/api/{cid}/schermo/{disp_id}/stato")
+    if s_disp and [t['id'] for t in s_disp.get('final_ranking', [])] == [t['id'] for t in s_final['teams']]:
+        ok("A rivelazione completa la classifica dei display coincide con quella calcolata")
+    else:
+        fail("La classifica finale dei display non coincide"); errori += 1
 else:
     rev = s_rev.get('revealed_positions', '?') if s_rev else '?'
     fail(f"Solo {rev} posizioni rivelate su {non_guests_count}"); errori += 1

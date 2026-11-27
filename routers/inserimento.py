@@ -36,9 +36,9 @@ class InputError(ValueError):
     """Dato inserito non valido: il messaggio viene mostrato nella pagina."""
 
 
-def _torna(url: str, errore: str) -> RedirectResponse:
+def _torna(url: str, errore: str, ancora: str = "") -> RedirectResponse:
     sep = "&" if "?" in url else "?"
-    return RedirectResponse(f"{url}{sep}errore={quote(errore)}", status_code=303)
+    return RedirectResponse(f"{url}{sep}errore={quote(errore)}{ancora}", status_code=303)
 
 
 def require_started(comp: Competition):
@@ -206,7 +206,7 @@ async def inserimento_soluzione(
         problem = _problem(db, comp_id, problem_number)
         answer = _risposta(answer)
     except InputError as e:
-        return _torna(f"/inserimento/{comp_id}", f"Consegna non registrata. {e}")
+        return _torna(f"/inserimento/{comp_id}", f"Consegna non registrata. {e}", ancora="#risposte")
     is_correct = answer == problem.answer
 
     is_post_game = comp.status == "ended"
@@ -228,7 +228,7 @@ async def inserimento_soluzione(
     ))
     db.commit()
     state_cache.invalidate(comp_id)
-    return RedirectResponse(f"/inserimento/{comp_id}", status_code=303)
+    return RedirectResponse(f"/inserimento/{comp_id}#risposte", status_code=303)
 
 
 def _consegne_url(comp_id: int, request: Request) -> str:

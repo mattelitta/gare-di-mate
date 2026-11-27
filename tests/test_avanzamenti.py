@@ -41,8 +41,8 @@ check("con un filtro attivo gli avanzamenti non compaiono",
       "Tempo di gara avanzato di" not in req(f"/inserimento/1/consegne?squadra={team1}")[2])
 if REMOTE:
     r = opener()
-    req("/admin/password-accesso", {"password": "segreta"})
-    req("/accesso", {"password": "segreta", "next": "/"}, op=r, base=REMOTE)
+    req("/admin/password-accesso", {"password": "segreta-123"})
+    req("/accesso", {"password": "segreta-123", "next": "/"}, op=r, base=REMOTE)
     st, _, b = req("/inserimento/1/consegne", op=r, base=REMOTE)
     check("da un dispositivo in rete: riga visibile ma 'solo Admin'",
           "Tempo di gara avanzato di" in b and SOLO_ADMIN in b and "Modifica in Admin" not in b)
