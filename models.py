@@ -256,7 +256,10 @@ class Display(Base):
     current_view: Mapped[str] = mapped_column(String(50), default="test")
     # test|ranking|team_list|problem_values|competition_status|matrix|final_ranking
     last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    text_scale: Mapped[int] = mapped_column(Integer, default=3)  # 1=minimo … 5=massimo
+    text_scale: Mapped[int] = mapped_column(Integer, default=3)  # 1=minimo … 7=massimo
+    # Schermo interno (es. sala dello staff), scelto dalla regia: ignora l'oscuramento e mostra
+    # sempre classifica e punteggi. Non va usato per schermi visibili al pubblico.
+    internal: Mapped[bool] = mapped_column(Boolean, default=False, server_default='0')
 
     competition: Mapped["Competition"] = relationship("Competition", back_populates="displays")
 

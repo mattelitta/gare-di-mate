@@ -109,5 +109,29 @@
     });
   }, true);
   </script>
+  {% if firma is defined %}
+  {# Aggiornamento automatico (vedi firma.py): se lo stato sul server cambia, la pagina si ricarica.
+     Non mentre una finestra di dialogo è aperta o si sta scrivendo in un campo: riprova dopo. #}
+  <script>
+  (function () {
+    const URL_FIRMA = {{ firma_url|tojson }}, FIRMA = {{ firma|tojson }};
+    let cambiata = false;
+    function sicuro() {
+      if (document.querySelector('dialog[open]')) return false;
+      const a = document.activeElement;
+      return !(a && ['INPUT', 'TEXTAREA', 'SELECT'].includes(a.tagName) && !['checkbox', 'radio'].includes(a.type));
+    }
+    setInterval(async () => {
+      if (!cambiata) {
+        try {
+          const r = await fetch(URL_FIRMA, {cache: 'no-store'});
+          if (r.ok && (await r.text()) !== FIRMA) cambiata = true;
+        } catch (e) {}
+      }
+      if (cambiata && sicuro()) location.reload();
+    }, 2000);
+  })();
+  </script>
+  {% endif %}
 </body>
 </html>

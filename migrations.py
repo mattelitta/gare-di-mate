@@ -76,6 +76,7 @@ MIGRATIONS = [
     # 11: accessi per dispositivo (tabella access_sessions, creata da create_all); il vecchio segreto
     # del cookie unico non serve più, e i dispositivi rifanno l'accesso una volta.
     lambda c: c.exec_driver_sql("DELETE FROM settings WHERE key = 'cookie_secret'"),          # 11
+    lambda c: _add_column(c, "displays", "internal", "BOOLEAN DEFAULT 0"),                     # 12
 ]
 SCHEMA_VERSION = len(MIGRATIONS)
 

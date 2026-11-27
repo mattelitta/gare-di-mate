@@ -1,5 +1,6 @@
-"""Tempo di gara: battito del server, ripresa dopo una chiusura del programma, avanzamento manuale."""
-from datetime import datetime
+"""Tempo di gara: battito del server, ripresa dopo una chiusura del programma, avanzamento manuale,
+fine della gara (tasto "Termina" o scadere del tempo)."""
+from datetime import datetime, timedelta
 
 from models import Competition, TimeAdjustment
 
@@ -39,6 +40,41 @@ def recover_after_restart(db, now: datetime | None = None) -> int:
         recovered += 1
     db.commit()
     return recovered
+
+
+def end(comp: Competition, at: datetime | None = None):
+    """Termina la gara all'istante `at` (adesso se non indicato): tasto "Termina" o scadere del tempo.
+    A fine gara la classifica si oscura comunque (l'impostazione manuale si azzera)."""
+    at = at or datetime.utcnow()
+    if comp.status == "paused" and comp.paused_at:
+        comp.total_paused_seconds += (at - comp.paused_at).total_seconds()
+    comp.status = "ended"
+    comp.ended_at = at
+    comp.blackout_manual = None
+    comp.blackout_manual_at = None
+
+
+def end_expired(db) -> list[int]:
+    """Chiamato ogni secondo: le gare in corso arrivate alla fine del tempo vengono terminate, con la
+    fine esattamente allo scadere (anche se il controllo arriva un attimo dopo, o dopo una chiusura
+    del programma). Le consegne registrate oltre la fine diventano consegne in ritardo, alla fine
+    della gara, come quelle inserite a gara terminata. Ritorna gli id delle gare terminate."""
+    terminate = []
+    for comp in db.query(Competition).filter(Competition.status == "running"):
+        durata = comp.duration_minutes * 60
+        oltre = comp.elapsed_seconds() - durata
+        if oltre < 0:
+            continue
+        end(comp, datetime.utcnow() - timedelta(seconds=oltre))
+        for s in comp.submissions:
+            if not s.is_post_game and s.game_seconds > durata:
+                s.is_post_game = True
+                s.game_seconds = float(durata)
+        clear_recovery(comp)  # a gara finita non c'è più tempo da recuperare
+        terminate.append(comp.id)
+    if terminate:
+        db.commit()
+    return terminate
 
 
 def max_advance(comp: Competition) -> float:

@@ -3,12 +3,13 @@ from datetime import datetime
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 import auth
 import formato
+import firma
 import tempo
 from cache import state_cache
 from database import get_db, load_comp_full
@@ -82,7 +83,25 @@ async def admin_home(request: Request, db: Session = Depends(get_db)):
                       "ruolo": auth.ROLE_LABELS.get(s.role, s.role)} for s in sessioni],
         "eventi": auth.events.recent(15),
         "blocchi": auth.limiter.active_locks(),
+        "firma": firma.elenco(db, sessioni=True), "firma_url": "/admin/api/firma?sessioni=1",
     })
+
+
+@router.get("/api/firma")
+async def admin_api_firma(request: Request, sessioni: int = 0, db: Session = Depends(get_db)):
+    """Firma dell'elenco delle gare, per l'aggiornamento automatico delle pagine (vedi firma.py)."""
+    require_localhost(request)
+    return PlainTextResponse(firma.elenco(db, sessioni=bool(sessioni)))
+
+
+@router.get("/api/gara/{comp_id}/firma")
+async def admin_api_firma_gara(request: Request, comp_id: int, regia: int = 0, db: Session = Depends(get_db)):
+    """Firma dello stato di una gara (pagina Admin, o Regia con regia=1)."""
+    require_localhost(request)
+    comp = db.get(Competition, comp_id)
+    if not comp:
+        raise HTTPException(status_code=404)
+    return PlainTextResponse(firma.gara(comp, regia=bool(regia)))
 
 
 @router.post("/password-accesso")
@@ -218,7 +237,10 @@ async def admin_gara(request: Request, comp_id: int, db: Session = Depends(get_d
     comp = db.get(Competition, comp_id)
     if not comp:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse("admin/gara.html", {"request": request, "comp": comp})
+    return templates.TemplateResponse("admin/gara.html", {
+        "request": request, "comp": comp,
+        "firma": firma.gara(comp), "firma_url": f"/admin/api/gara/{comp_id}/firma",
+    })
 
 
 # --- Edit competition ---
@@ -466,13 +488,7 @@ async def admin_termina(request: Request, comp_id: int, db: Session = Depends(ge
     comp = db.get(Competition, comp_id)
     if not comp or comp.status not in ("running", "paused"):
         raise HTTPException(status_code=400)
-    now = datetime.utcnow()
-    if comp.status == "paused" and comp.paused_at:
-        comp.total_paused_seconds += (now - comp.paused_at).total_seconds()
-    comp.status = "ended"
-    comp.ended_at = now
-    comp.blackout_manual = None  # a fine gara la classifica si oscura comunque (poi si può mostrare a mano)
-    comp.blackout_manual_at = None
+    tempo.end(comp)  # anche la classifica si oscura (poi si può mostrare a mano)
     db.commit()
     state_cache.invalidate(comp_id)
     return RedirectResponse(f"/admin/gara/{comp_id}", status_code=303)

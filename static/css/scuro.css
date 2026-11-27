@@ -97,6 +97,9 @@ html.scuro .text-orange-900 { color: #fdba74; }
 html.scuro .text-orange-600 { color: #fb923c; }
 html.scuro .border-orange-200 { border-color: rgba(249,115,22,.45); }
 html.scuro .border-orange-300 { border-color: rgba(249,115,22,.45); }
+html.scuro .bg-amber-100 { background-color: rgba(245,158,11,0.2); }
+html.scuro .text-amber-800 { color: #fcd34d; }
+html.scuro .text-amber-700 { color: #fbbf24; }
 html.scuro .bg-cyan-50 { background-color: rgba(6,182,212,0.1); }
 html.scuro .hover\:bg-cyan-50:hover { background-color: rgba(6,182,212,0.20); }
 html.scuro .bg-cyan-100 { background-color: rgba(6,182,212,0.18); }

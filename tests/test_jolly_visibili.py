@@ -59,6 +59,14 @@ contributo = t_d["problem_contributions"][str(pid)]
 check("prima della chiusura: display conta il problema senza raddoppio, admin con",
       contributo > 0 and t_a["total"] - t_d["total"] == contributo, f"{t_a['total']} vs {t_d['total']} (+{contributo})")
 check("inseritori vedono sempre i jolly", json.loads(req("/inserimento/1/stato")[2])["jolly"] == {"2": 3})
+req("/regia/1/display/aggiungi", {"name": "Sala staff"})
+interno = db("SELECT id FROM displays WHERE name='Sala staff'")[0][0]
+req(f"/regia/1/display/{interno}/interno", {"interno": "1"})
+staff = json.loads(req(f"/display/api/1/schermo/{interno}/stato")[2])
+check("prima della chiusura: lo schermo interno vede il jolly, con i punti dell'admin",
+      staff["jolly_public"] is True and squadra(staff, 2)["jolly_problem_id"] == pid
+      and {t["number"]: t["total"] for t in staff["teams"]} == {t["number"]: t["total"] for t in adm["teams"]})
+check("...mentre lo schermo pubblico continua a non vederlo", display(1)["jolly_public"] is False)
 
 req("/admin/gara/1/avanza-tempo", {"minutes": "5", "seconds": "0"})
 d = display(1)

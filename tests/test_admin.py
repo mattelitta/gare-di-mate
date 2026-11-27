@@ -114,21 +114,63 @@ viewer = req(f"/display/1/schermo/{disp}")[2]
 check("schermo del display: nessuna modalità scura delle pagine di lavoro",
       viewer and "scuro.css" not in viewer and "gdm-tema" not in viewer)
 # --- vista "Matrice" ---
-check("regia: tasto della vista Matrice", 'value="matrix"' in req("/regia/1")[2] and ">\n          Matrice\n" in req("/regia/1")[2])
+check("regia: tasto della vista Matrice", re.search(r'value="matrix"[^>]*>\s*Matrice\s*<', req("/regia/1")[2]) is not None)
 req(f"/regia/1/display/{disp}/vista", {"view": "matrix"})
 check("vista Matrice impostata sul display", db(f"SELECT current_view FROM displays WHERE id={disp}")[0][0] == "matrix")
 matrice = viewer.split("function renderMatrix()")[1].split("// --- FINAL RANKING")[0] if "function renderMatrix()" in viewer else ""
+stato_gara = viewer.split("function renderCompStatus()")[1].split("// --- MATRICE")[0]
+check("stato gara: squadre in ordine di classifica, numero e nome, punteggio a destra nella stessa colonna",
+      "const teams = state.teams;" in stato_gara and ">Punti</th>" not in stato_gara
+      and "justify-between" in stato_gara and "Math.round(t.total)" in stato_gara
+      and "t.number" in stato_gara and "ri + 1" not in stato_gara)
+check("matrice: resta in ordine di numero", "sort((a,b) => a.number - b.number)" in matrice)
 check("matrice: nascosta con l'oscuramento, solo numeri, colori e jolly (niente nomi, valori, punti)",
       "if (state.blackout_active) return schermataOscurata();" in matrice
       and "t.name" not in matrice and "p.value" not in matrice and "problem_contributions" not in matrice
       and "text = errors" in matrice
-      and "const isJolly = t.jolly_problem_id === p.id;" in matrice and "ring-2 ring-yellow-400" in matrice)
+      and "const isJolly = t.jolly_problem_id === p.id;" in matrice and "cella-jolly" in matrice)
 check("matrice: disegnata sia al cambio di vista sia negli aggiornamenti",
       viewer.count("case 'matrix':") == 2)
 
 css = req("/static/css/scuro.css")[2]
 check("foglio scuro: sfondo pagina scuro anche con la classe bg-gray-100 del body",
       "html.scuro body.bg-gray-100" in css and "color-scheme: dark" in css)
+
+# --- aggiornamento automatico delle pagine (firma dello stato) ---
+def firma_pagina(html):
+    m = re.search(r'const URL_FIRMA = "([^"]+)", FIRMA = "([0-9a-f]+)"', html)
+    return m.groups() if m else (None, None)
+
+
+for pagina in ("/admin/", "/admin/gara/1", "/regia/", "/regia/1", "/inserimento/"):
+    url, valore = firma_pagina(req(pagina)[2])
+    check(f"{pagina}: si aggiorna da sola (firma uguale a quella del server finché nulla cambia)",
+          url is not None and req(url)[2] == valore and req(url)[2] == valore)
+check("la pagina di inserimento di una gara non usa la firma (si aggiorna già via /stato)",
+      "URL_FIRMA" not in req("/inserimento/1")[2])
+url_gara, prima = firma_pagina(req("/admin/gara/1")[2])
+url_regia, prima_regia = firma_pagina(req("/regia/1")[2])
+url_elenco, prima_elenco = firma_pagina(req("/inserimento/")[2])
+stato = db("SELECT status FROM competitions WHERE id=1")[0][0]
+req("/admin/gara/1/" + ("pausa" if stato == "running" else "avvia"), {})
+check("cambio di stato della gara: cambiano le firme di pagina gara, regia ed elenco",
+      req(url_gara)[2] != prima and req(url_regia)[2] != prima_regia and req(url_elenco)[2] != prima_elenco)
+url_regia, prima_regia = firma_pagina(req("/regia/1")[2])
+d = db("SELECT id FROM displays WHERE competition_id=1")[0][0]
+req(f"/regia/1/display/{d}/scala", {"scale": "4"})
+check("regia: cambia anche con le impostazioni dei display", req(url_regia)[2] != prima_regia)
+
+# --- scala del testo: 1 … 7 (6 e 7 per gare con poche squadre) ---
+req(f"/regia/1/display/{d}/scala", {"scale": "7"})
+check("regia: scala 7 salvata", db(f"SELECT text_scale FROM displays WHERE id={d}")[0][0] == 7)
+req(f"/regia/1/display/{d}/scala", {"scale": "9"})
+check("regia: oltre 7 si resta a 7", db(f"SELECT text_scale FROM displays WHERE id={d}")[0][0] == 7)
+check("regia: a scala 7 il tasto '+' è disattivato",
+      re.search(r'value="8" title="Testo più grande"[^>]*>', req("/regia/1")[2]) is not None
+      and 'disabled>+</button>' in req("/regia/1")[2])
+viewer = req(f"/display/1/schermo/{d}")[2]
+check("display: preset di scala 6 e 7", "  6: { rankW:" in viewer and "  7: { rankW:" in viewer)
+req(f"/regia/1/display/{d}/scala", {"scale": "3"})
 
 # --- il computer server è riconosciuto solo da 127.0.0.1 ---
 st, _, home = req("/", base=BASE)

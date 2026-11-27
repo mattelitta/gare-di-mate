@@ -2,12 +2,13 @@ from datetime import datetime
 from urllib.parse import quote, urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from cache import state_cache
 from database import get_db
+import firma
 import formato
 from models import Competition, JollyChoice, Problem, Submission, Team
 from paths import TEMPLATES_DIR
@@ -29,7 +30,15 @@ async def inserimento_home(request: Request, db: Session = Depends(get_db)):
     comps = db.query(Competition).filter(
         Competition.status.in_(["created", "running", "paused", "ended"])
     ).order_by(Competition.created_at.desc()).all()
-    return templates.TemplateResponse("inserimento/home.html", {"request": request, "comps": comps})
+    return templates.TemplateResponse("inserimento/home.html", {
+        "request": request, "comps": comps, "firma": firma.elenco(db), "firma_url": "/inserimento/api/firma",
+    })
+
+
+@router.get("/api/firma")
+async def inserimento_api_firma(db: Session = Depends(get_db)):
+    """Firma dell'elenco delle gare, per l'aggiornamento automatico (vedi firma.py)."""
+    return PlainTextResponse(firma.elenco(db))
 
 
 class InputError(ValueError):
@@ -209,7 +218,7 @@ async def inserimento_soluzione(
         return _torna(f"/inserimento/{comp_id}", f"Consegna non registrata. {e}", ancora="#risposte")
     is_correct = answer == problem.answer
 
-    is_post_game = comp.status == "ended"
+    is_post_game = comp.status == "ended" or comp.elapsed_seconds() >= comp.duration_minutes * 60
     if is_post_game:
         # Il momento in cui la gara è finita: la fine teorica, o prima se è stata terminata in anticipo.
         game_sec = min(comp.duration_minutes * 60.0, comp.elapsed_seconds())

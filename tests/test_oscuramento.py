@@ -64,4 +64,27 @@ scadenze = re.findall(r'data-prima="([^"]+)"', req("/admin/gara/1")[2])
 check("se l'oscuramento coincide con la fine della gara non compare tra le scadenze", "Oscuramento" not in scadenze, str(scadenze))
 req("/admin/gara/1/termina", {})
 check("a gara terminata le scadenze non compaiono", 'id="scadenze"' not in req("/admin/gara/1")[2])
+
+# --- schermi interni: ignorano l'oscuramento ---
+req("/regia/1/display/aggiungi", {"name": "Sala staff"})
+interno = db("SELECT id FROM displays WHERE name='Sala staff'")[0][0]
+regia = req("/regia/1")[2]
+check("regia: interruttore 'Interno' per ogni display, spento di default",
+      regia.count('/interno"') == 2 and db(f"SELECT internal FROM displays WHERE id={interno}")[0][0] == 0)
+req(f"/regia/1/display/{interno}/interno", {"interno": "1"})
+check("regia: schermo segnato come interno (etichetta accanto al nome)",
+      db(f"SELECT internal FROM displays WHERE id={interno}")[0][0] == 1 and ">interno</span>" in req("/regia/1")[2])
+toggle(True)
+pubblico = json.loads(req("/display/api/1/schermo/1/stato")[2])
+staff = json.loads(req(f"/display/api/1/schermo/{interno}/stato")[2])
+check("con l'oscuramento lo schermo pubblico non riceve punteggi", pubblico["blackout_active"] and pubblico["teams"] == [])
+check("lo schermo interno ignora l'oscuramento e riceve la classifica",
+      not staff["blackout_active"] and staff["teams"] and "total" in staff["teams"][0])
+check("lo schermo interno mostra l'avviso 'oscuramento ignorato'",
+      staff["blackout_ignored"] is True and pubblico["blackout_ignored"] is False
+      and 'id="hdr-interno"' in req(f"/display/1/schermo/{interno}")[2])
+req(f"/regia/1/display/{interno}/interno", {})
+staff = json.loads(req(f"/display/api/1/schermo/{interno}/stato")[2])
+check("tolta la spunta torna come gli altri (oscurato)", staff["blackout_active"] and staff["teams"] == [])
+toggle(False)
 finish()

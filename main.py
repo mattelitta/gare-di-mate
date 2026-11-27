@@ -212,6 +212,9 @@ async def broadcast_loop():
         db = SessionLocal()
         try:
             tempo.heartbeat(db)
+            for comp_id in tempo.end_expired(db):  # allo scadere del tempo la gara termina da sola
+                state_cache.invalidate(comp_id)
+                log.info("Gara %s terminata allo scadere del tempo", comp_id)
             comp_ids = [
                 c.id for c in db.query(Competition.id)
                 .filter(Competition.status == "running").all()

@@ -10,7 +10,8 @@ Software di gestione per gare a squadre di matematica. Permette di amministrare 
 - **Modalità scura** per le pagine di lavoro (admin, inserimento, regia): tasto in alto a destra, vale solo per il browser su cui si attiva e non tocca i display
 - **Ripresa dopo un crash** — se il programma si chiude con una gara in corso, alla riapertura la gara riprende dal minuto raggiunto e un avviso propone di far avanzare il tempo della durata dell'interruzione (modificabile o ignorabile)
 - **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara (la pagina si può aprire già prima della partenza: l'invio si attiva da solo quando la gara inizia); stato della gara e tempi alla fine e alla chiusura dei jolly sempre visibili; squadre senza jolly evidenziate in giallo negli ultimi 2 minuti e in rosso dopo la scadenza, con un tasto per assegnare loro il jolly sul problema 01; errori di inserimento segnalati nella pagina; storico consegne (più recenti in alto) modificabile e filtrabile per squadra, problema e dispositivo che le ha inserite, con gli avanzamenti del tempo al loro posto; ottimizzato per uso rapido da tablet (il cursore passa da solo al campo successivo: es. `04` `03` Invio)
-- **Regia** — controllo dei display in sala (scelta della vista, scala del testo), rivelazione progressiva della classifica finale
+- **Regia** — controllo dei display in sala (scelta della vista, scala del testo, schermi interni che ignorano l'oscuramento), rivelazione progressiva della classifica finale
+- **Pagine sempre aggiornate** — le pagine di Admin e Regia e l'elenco delle gare dell'Inserimento si ricaricano da sole quando cambia lo stato della gara (avvio, pausa, oscuramento automatico, fine allo scadere del tempo, classifica finale calcolata, modifiche fatte da un'altra finestra); mai mentre si sta scrivendo in un campo o è aperta una finestra di conferma
 - **Display** — viste in tempo reale aggiornate via polling: classifica, elenco squadre, valori problemi, stato gara, classifica finale
 
 ## Requisiti
@@ -156,10 +157,12 @@ lunga, diversa da quella del Wi-Fi, comunicata solo a chi inserisce.
 4. L'**Inserimento** registra jolly (entro il tempo jolly) e soluzioni
 5. I **Display** mostrano classifica, valori e stato in tempo reale
 6. Al minuto di oscuramento la classifica (con elenco squadre e stato gara) viene nascosta al pubblico;
+   (non sugli schermi segnati come interni dalla Regia);
    l'Admin può anche oscurarla o mostrarla a mano in qualsiasi momento, e vede il tempo mancante
    alle scadenze (chiusura jolly, congelamento valori, oscuramento, fine gara)
 7. Al minuto soglia i valori dei problemi si congelano
-8. L'**Admin** termina la gara; l'**Inserimento** può continuare per consegne in ritardo
+8. Allo scadere del tempo la gara termina da sola (l'**Admin** può anche terminarla prima);
+   l'**Inserimento** può continuare per consegne in ritardo, registrate alla fine della gara
 9. L'**Admin** calcola la classifica finale (si può ricalcolare quante volte serve, per esempio dopo
    consegne in ritardo) e, quando serve, spunta "Inserimenti bloccati" (si può togliere)
 10. La **Regia** rivela le posizioni una alla volta dal basso verso l'alto
@@ -191,12 +194,15 @@ lunga, diversa da quella del Wi-Fi, comunicata solo a chi inserisce.
 | `ranking` | Classifica con barre, linea qualificate, oscurabile |
 | `team_list` | Elenco squadre per numero |
 | `problem_values` | Valori correnti dei problemi con barre |
-| `competition_status` | Griglia squadre × problemi con contributi e jolly |
-| `matrix` | "Matrice": la stessa griglia con soli numeri di squadra e problema; casella verde se risolto, rossa con il numero di errori se solo sbagliato, bordo giallo sul jolly (visibile come nello stato gara) |
+| `competition_status` | Griglia squadre × problemi con contributi e jolly; squadre in ordine di classifica con numero, nome e punteggio sulla destra (linea rossa sotto l'ultima qualificata) |
+| `matrix` | "Matrice": la stessa griglia con soli numeri di squadra e problema; casella verde se risolto, rossa con il numero di errori se solo sbagliato, bordo giallo spesso sul jolly (visibile come nello stato gara) |
 | `final_ranking` | Rivelazione progressiva gestita dalla Regia |
 
-La **scala del testo** di ogni display (1–5) è regolabile dalla Regia in tempo reale: scala 1 per 30+ squadre, scala 5 per 5–10 squadre.
+La **scala del testo** di ogni display (1–7) è regolabile dalla Regia in tempo reale: scala 1 per 30+ squadre, scala 5 per 5–10 squadre, scale 6 e 7 per gare con pochissime squadre.
 Il **tema** (chiaro, predefinito e adatto alla proiezione, oppure scuro) si sceglie nei parametri della gara.
+Un display può essere segnato dalla Regia come **interno** (es. lo schermo nella sala dello staff):
+ignora l'oscuramento e mostra sempre classifica, punteggi e jolly (anche quando i jolly sono nascosti
+fino alla chiusura), con un avviso arancione nell'intestazione mentre l'oscuramento è attivo. Da non usare per schermi visibili al pubblico.
 
 ## Struttura del progetto
 
@@ -205,6 +211,7 @@ gare-di-mate/
 ├── main.py              # Applicazione FastAPI, controlli di sicurezza e di accesso, broadcast loop cache
 ├── server.py            # Avvio dei due server (HTTP per il computer server, HTTPS per la rete)
 ├── tls.py               # Certificato HTTPS autofirmato per gli indirizzi del computer
+├── firma.py             # Firma dello stato di una pagina, per l'aggiornamento automatico
 ├── launcher.py          # Finestra di avvio (eseguibile Windows)
 ├── paths.py             # Percorsi di template, file statici e database
 ├── auth.py              # Password, sessioni per dispositivo e permessi, limite ai tentativi
@@ -244,11 +251,12 @@ I test girano su una copia temporanea del progetto con una porta libera: il `gar
 non viene toccato e non serve avere il server acceso.
 
 ```bash
-# Suite rapida (meno di mezzo minuto): da usare durante lo sviluppo
+# Suite rapida (meno di un minuto): da usare durante lo sviluppo
 python tests/run.py
 
 # Suite completa (qualche minuto): prima di compilare una versione definitiva.
-# Aggiunge crash veri con riavvio, la modalità --migra dell'installer e una gara di 2 minuti.
+# Aggiunge i test di sicurezza in rete, crash veri con riavvio, la modalità --migra
+# dell'installer e una gara di 2 minuti.
 python tests/run.py --completa
 
 # Dettaglio di ogni controllo

@@ -99,12 +99,14 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
     remaining = max(0, comp.duration_minutes * 60 - elapsed)
     # Da lì classifica, elenco squadre e stato gara restano nascosti; la classifica si vede solo
     # con la rivelazione della classifica finale dalla regia.
-    blackout_active = comp.blackout_active()
+    # Gli schermi interni (scelti dalla regia) ignorano l'oscuramento.
+    blackout_ignored = comp.blackout_active() and disp.internal
+    blackout_active = comp.blackout_active() and not disp.internal
 
     # Controlla cache — se presente evita di ricaricare tutto dal DB
     # Con i jolly nascosti fino alla chiusura, i display li ignorano del tutto (anche il raddoppio
     # dei punti, che altrimenti li rivelerebbe).
-    jolly_public = comp.jolly_public()
+    jolly_public = comp.jolly_public() or disp.internal  # gli schermi interni vedono sempre i jolly
     variant = "full" if jolly_public else "public"
     cached = state_cache.get(comp_id, variant)
     if cached is None:
@@ -157,6 +159,8 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
         "remaining_seconds": remaining,
         "duration_seconds": comp.duration_minutes * 60,
         "blackout_active": blackout_active,
+        "internal": disp.internal,
+        "blackout_ignored": blackout_ignored,  # per l'avviso "schermo interno" nell'intestazione
         "jolly_time_seconds": comp.jolly_time_minutes * 60,
         "jolly_public": jolly_public,
         "n": comp.n,

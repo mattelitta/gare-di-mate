@@ -35,7 +35,8 @@ TESTS = [
     ("Visibilità dei jolly", "tests/test_jolly_visibili.py", True, True),
     ("Fine gara: classifica e blocco", "tests/test_finale.py", True, True),
     ("Esportazione PDF", "tests/test_pdf.py", True, True),
-    ("Sicurezza in rete", "tests/test_sicurezza.py", True, True),
+    ("Sicurezza in rete", "tests/test_sicurezza.py", True, False),  # solo nella suite completa
+    ("Fine automatica allo scadere", "tests/test_fine_auto.py", True, True),
     ("Oscuramento e scadenze", "tests/test_oscuramento.py", True, True),
     ("Pagine admin e inserimento", "tests/test_admin.py", True, True),
     ("Parametri di gara", "tests/test_parametri.py", True, True),

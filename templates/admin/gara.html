@@ -285,7 +285,7 @@
   };
   function tempoGara() {
     const trascorso = TEMPO_GARA.inCorso ? (Date.now() - TEMPO_GARA.caricato) / 1000 : 0;
-    return TEMPO_GARA.base + trascorso;
+    return TEMPO_GARA.inCorso ? Math.min(TEMPO_GARA.base + trascorso, TEMPO_GARA.durata) : TEMPO_GARA.base + trascorso;
   }
   function mmss(s) {
     s = Math.max(0, Math.floor(s));
@@ -302,6 +302,8 @@
   }
   aggiornaScadenze();
   if (TEMPO_GARA.inCorso) {
+    // Il cronometro si ferma alla fine; allo scadere il server termina la gara e la pagina si
+    // aggiorna da sola (aggiornamento automatico in base.html).
     setInterval(() => {
       document.getElementById('tempo-gara').textContent = mmss(tempoGara());
       aggiornaScadenze();
