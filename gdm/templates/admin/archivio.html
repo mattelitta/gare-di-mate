@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Archivio — Gare di Mate{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">📦 Archivio</h1>
+  <a href="/admin/" class="text-sm text-gray-500 hover:underline">← Tutte le gare</a>
+</div>
+<p class="text-sm text-gray-600 mb-4">
+  Le gare terminate si archiviano da sole 24 ore dopo la fine (o quando le archivia l'Admin): non accettano
+  più inserimenti e non compaiono negli elenchi di inseritori e display. De-archiviandola, una gara torna
+  nell'elenco principale e non si archivia più da sola.
+</p>
+
+{% if comps %}
+<div class="space-y-3">
+  {% for comp in comps %}
+  <div class="bg-white rounded-lg shadow p-4 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <span class="font-semibold text-lg">{{ comp.name }}</span>
+      {% if comp.date %}<span class="text-gray-500 text-sm ml-2">{{ comp.date }}</span>{% endif %}
+      <span class="ml-3 px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600">
+        {% if comp.archived_manual %}archiviata a mano{% else %}archiviata da sola{% endif %}</span>
+    </div>
+    <div class="flex gap-2">
+      <a href="/admin/gara/{{ comp.id }}" class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-sm">Gestisci</a>
+      <form method="post" action="/admin/gara/{{ comp.id }}/archivio">
+        <input type="hidden" name="torna" value="archivio">
+        <button class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-sm">De-archivia</button>
+      </form>
+      <form method="post" action="/admin/gara/{{ comp.id }}/copia">
+        <button class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-sm">Copia</button>
+      </form>
+      <form method="post" action="/admin/gara/{{ comp.id }}/elimina"
+            data-conferma="Eliminare la gara {{ comp.name }}?&#10;&#10;Verranno cancellate anche squadre, problemi e consegne." data-conferma-ok="Elimina la gara">
+        <button class="bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 rounded text-sm">Elimina</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-500">Nessuna gara archiviata.</p>
+{% endif %}
+{% endblock %}

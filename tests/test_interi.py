@@ -3,7 +3,7 @@ from datetime import datetime
 from types import SimpleNamespace as NS
 
 from _util import check, finish
-from engine import compute_state
+from gdm.engine import compute_state
 
 
 def comp(submissions=(), threshold_minute=60, n=2):

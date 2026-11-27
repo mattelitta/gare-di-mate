@@ -42,7 +42,7 @@ san = {str(ip) for ip in cert.extensions.get_extension_for_class(x509.SubjectAlt
        .get_values_for_type(x509.IPAddress)}
 check("certificato creato al primo avvio, valido per gli indirizzi del computer", REMOTE_IP in san and "127.0.0.1" in san)
 check("la chiave privata resta nella cartella dei dati, fuori dal progetto pubblicato",
-      (CERT.parent / "chiave.pem").exists() and "certificato/" in (CERT.parents[1] / ".gitignore").read_text(encoding="utf-8"))
+      (CERT.parent / "chiave.pem").exists() and "dati/" in (CERT.parents[2] / ".gitignore").read_text(encoding="utf-8"))
 
 # --- porta HTTP: per gli altri dispositivi solo il rimando a HTTPS ---
 st, h, b = req("/inserimento/1?x=1", base=REMOTE_HTTP)

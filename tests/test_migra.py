@@ -3,8 +3,8 @@ import sqlite3
 import subprocess
 import sys
 
-from _util import APP, DB, check, finish, make_legacy_db
-from migrations import SCHEMA_VERSION
+from _util import APP, DATI, DB, check, finish, make_legacy_db
+from gdm.migrations import SCHEMA_VERSION
 
 
 def migra():
@@ -19,7 +19,7 @@ def version():
 
 
 def cleanup():
-    for f in [DB, *APP.glob("gare-backup-*.db")]:
+    for f in [DB, *DATI.glob("gare-backup-*.db")]:
         f.unlink(missing_ok=True)
 
 
@@ -34,7 +34,7 @@ check("database di una versione più recente -> codice 2", migra() == 2 and vers
 cleanup()
 make_legacy_db(DB)
 check("database 1.0 -> codice 0, migrato, backup creato",
-      migra() == 0 and version() == SCHEMA_VERSION and len(list(APP.glob("gare-backup-*.db"))) == 1)
+      migra() == 0 and version() == SCHEMA_VERSION and len(list(DATI.glob("gare-backup-*.db"))) == 1)
 
 c = sqlite3.connect(DB)
 c.execute("PRAGMA user_version = 2")
@@ -46,7 +46,7 @@ code = migra()
 lock.rollback()
 lock.close()
 check("database bloccato da un altro programma -> codice 1", code == 1)
-log = (APP / "gare-di-mate.log").read_text(encoding="utf-8")
+log = (DATI / "gare-di-mate.log").read_text(encoding="utf-8")
 check("errori scritti nel log", "--migra: errore" in log and "--migra: database di una versione più recente" in log)
 cleanup()
 finish()

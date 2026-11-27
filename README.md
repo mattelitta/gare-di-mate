@@ -4,13 +4,13 @@ Software di gestione per gare a squadre di matematica. Permette di amministrare 
 
 ## Funzionalità
 
-- **Admin** — creazione e gestione gare; squadre e problemi (nella pagina "Modifica parametri", per non toccarli per sbaglio durante la gara); bonus o penalizzazioni in punti; controllo stato (avvia / pausa / riprendi / termina) e avanzamento manuale del tempo di gara; accessibile solo dal dispositivo host
+- **Admin** — creazione e gestione gare; squadre e problemi (nella pagina "Modifica parametri", per non toccarli per sbaglio durante la gara); bonus o penalizzazioni in punti; controllo stato (avvia / pausa / riprendi / termina) e avanzamento manuale del tempo di gara; archivio delle gare concluse; viste dei display (classifica, valori problemi, stato gara, matrice) da aprire in un tab a sé, sempre interne (ignorano l'oscuramento e mostrano i jolly) anche per le gare archiviate; accessibile solo dal dispositivo host
 - **PDF dei risultati** — a gara terminata e classifica calcolata, l'Admin scarica un PDF con la classifica finale e i valori dei problemi come grafici a barre e lo stato della gara
 - **Consegne con il tempo** — dallo storico consegne l'Admin può aggiungere una consegna dimenticata indicandone il tempo di gara (non oltre quello attuale); i punteggi si ricalcolano come se fosse stata inserita in quel momento; nello storico dell'Admin (e solo lì) queste consegne sono segnate "aggiunta da Admin"
 - **Modalità scura** per le pagine di lavoro (admin, inserimento, regia): tasto in alto a destra, vale solo per il browser su cui si attiva e non tocca i display
 - **Ripresa dopo un crash** — se il programma si chiude con una gara in corso, alla riapertura la gara riprende dal minuto raggiunto e un avviso propone di far avanzare il tempo della durata dell'interruzione (modificabile o ignorabile)
-- **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara (la pagina si può aprire già prima della partenza: l'invio si attiva da solo quando la gara inizia); stato della gara e tempi alla fine e alla chiusura dei jolly sempre visibili; squadre senza jolly evidenziate in giallo negli ultimi 2 minuti e in rosso dopo la scadenza, con un tasto per assegnare loro il jolly sul problema 01; errori di inserimento segnalati nella pagina; storico consegne (più recenti in alto) modificabile e filtrabile per squadra, problema e dispositivo che le ha inserite, con gli avanzamenti del tempo al loro posto; ottimizzato per uso rapido da tablet (il cursore passa da solo al campo successivo: es. `04` `03` Invio)
-- **Regia** — controllo dei display in sala (scelta della vista, scala del testo, schermi interni che ignorano l'oscuramento), rivelazione progressiva della classifica finale
+- **Inserimento** — registrazione jolly e soluzioni durante e dopo la gara (la pagina si può aprire già prima della partenza: l'invio si attiva da solo quando la gara inizia); stato della gara, tempo alla fine e scadenze (domande sul testo, scelta jolly) sempre visibili in ordine di tempo, in giallo negli ultimi 2 minuti (jolly e domande anche in rosso nel minuto dopo la scadenza); squadre senza jolly evidenziate in giallo negli ultimi 2 minuti e in rosso dopo la scadenza, con un tasto per assegnare loro il jolly sul problema 01; errori di inserimento segnalati nella pagina; storico consegne (più recenti in alto) modificabile e filtrabile per squadra, problema e dispositivo che le ha inserite, con gli avanzamenti del tempo al loro posto; ottimizzato per uso rapido da tablet (il cursore passa da solo al campo successivo: es. `04` `03` Invio)
+- **Regia** — controllo dei display in sala (scelta della vista, oppure più viste che si alternano ogni tot secondi; scala del testo; schermi interni che ignorano l'oscuramento), rivelazione progressiva della classifica finale
 - **Pagine sempre aggiornate** — le pagine di Admin e Regia e l'elenco delle gare dell'Inserimento si ricaricano da sole quando cambia lo stato della gara (avvio, pausa, oscuramento automatico, fine allo scadere del tempo, classifica finale calcolata, modifiche fatte da un'altra finestra); mai mentre si sta scrivendo in un campo o è aperta una finestra di conferma
 - **Display** — viste in tempo reale aggiornate via polling: classifica, elenco squadre, valori problemi, stato gara, classifica finale
 
@@ -81,10 +81,12 @@ avvia.bat
 
 **Manuale** (qualsiasi sistema):
 ```bash
-python server.py            # porte predefinite: 8000 (HTTP) e 8443 (HTTPS)
+python -m gdm.server        # dalla cartella del progetto; porte predefinite: 8000 (HTTP) e 8443 (HTTPS)
 ```
 
 Gli script rilevano automaticamente un eventuale ambiente virtuale nella cartella `venv/`.
+Avviato da sorgente, Gare di Mate tiene database, backup e certificato nella cartella `dati/`
+del progetto (esclusa da git); installato, in `Documenti\Gare di Mate`.
 
 Il server sarà accessibile su:
 
@@ -159,13 +161,17 @@ lunga, diversa da quella del Wi-Fi, comunicata solo a chi inserisce.
 6. Al minuto di oscuramento la classifica (con elenco squadre e stato gara) viene nascosta al pubblico;
    (non sugli schermi segnati come interni dalla Regia);
    l'Admin può anche oscurarla o mostrarla a mano in qualsiasi momento, e vede il tempo mancante
-   alle scadenze (chiusura jolly, congelamento valori, oscuramento, fine gara)
+   alle scadenze (domande sul testo, chiusura jolly, congelamento valori, oscuramento, fine gara), in ordine di tempo
 7. Al minuto soglia i valori dei problemi si congelano
 8. Allo scadere del tempo la gara termina da sola (l'**Admin** può anche terminarla prima);
    l'**Inserimento** può continuare per consegne in ritardo, registrate alla fine della gara
 9. L'**Admin** calcola la classifica finale (si può ricalcolare quante volte serve, per esempio dopo
-   consegne in ritardo) e, quando serve, spunta "Inserimenti bloccati" (si può togliere)
+   consegne in ritardo)
 10. La **Regia** rivela le posizioni una alla volta dal basso verso l'alto
+11. 24 ore dopo la fine la gara si **archivia** da sola (l'Admin può archiviarla prima o de-archiviarla):
+    è in sola lettura (niente inserimenti né modifiche a parametri, squadre, problemi, bonus e classifica
+    finale), non compare negli elenchi di inseritori, display e regia e nella home Admin
+    passa nella pagina **Archivio**, linkata in fondo
 
 ## Parametri di una gara
 
@@ -179,6 +185,7 @@ lunga, diversa da quella del Wi-Fi, comunicata solo a chi inserisce.
 | `bonus_full` | Lista di bonus per le prime squadre a completare tutti i problemi |
 | `durata_minuti` | Durata della gara |
 | `tempo_jolly` | Minuti disponibili per scegliere il jolly (default 30) |
+| `tempo domande sul testo` | Minuti dalla partenza entro cui si possono fare domande sul testo (default 30, si può lasciare vuoto). Non cambia nulla nella gara; il tempo rimanente si vede nella pagina Admin e in quella degli inseritori |
 | `jolly nei display` | Visibili appena inseriti (default) o tutti insieme alla chiusura dei jolly; nel secondo caso fino ad allora i display contano i punti senza raddoppio |
 | `minuto_soglia` | Dopo questo minuto i valori si congelano (`≤ durata`) |
 | `minuto_oscuramento` | Dopo questo minuto la classifica è nascosta al pubblico (`≤ durata`) |
@@ -200,6 +207,9 @@ lunga, diversa da quella del Wi-Fi, comunicata solo a chi inserisce.
 
 La **scala del testo** di ogni display (1–7) è regolabile dalla Regia in tempo reale: scala 1 per 30+ squadre, scala 5 per 5–10 squadre, scale 6 e 7 per gare con pochissime squadre.
 Il **tema** (chiaro, predefinito e adatto alla proiezione, oppure scuro) si sceglie nei parametri della gara.
+Spuntando **Alterna più viste** la Regia sceglie per uno schermo più viste e ogni quanti secondi cambiarle
+(da 3 a 3600): gli schermi con le stesse impostazioni cambiano insieme, anche a Regia chiusa.
+Togliendo la spunta lo schermo torna subito alla vista singola.
 Un display può essere segnato dalla Regia come **interno** (es. lo schermo nella sala dello staff):
 ignora l'oscuramento e mostra sempre classifica, punteggi e jolly (anche quando i jolly sono nascosti
 fino alla chiusura), con un avviso arancione nell'intestazione mentre l'oscuramento è attivo. Da non usare per schermi visibili al pubblico.
@@ -208,47 +218,39 @@ fino alla chiusura), con un avviso arancione nell'intestazione mentre l'oscurame
 
 ```
 gare-di-mate/
-├── main.py              # Applicazione FastAPI, controlli di sicurezza e di accesso, broadcast loop cache
-├── server.py            # Avvio dei due server (HTTP per il computer server, HTTPS per la rete)
-├── tls.py               # Certificato HTTPS autofirmato per gli indirizzi del computer
-├── firma.py             # Firma dello stato di una pagina, per l'aggiornamento automatico
+├── gdm/                 # Il programma (pacchetto Python)
+│   ├── main.py          # Applicazione FastAPI, controlli di sicurezza e di accesso, ciclo al secondo
+│   ├── server.py        # Avvio dei due server (HTTP per il computer server, HTTPS per la rete)
+│   ├── tls.py           # Certificato HTTPS autofirmato per gli indirizzi del computer
+│   ├── auth.py          # Password, sessioni per dispositivo e permessi, limite ai tentativi
+│   ├── firma.py         # Firma dello stato di una pagina, per l'aggiornamento automatico
+│   ├── paths.py         # Percorsi di template, file statici e dati
+│   ├── database.py      # Setup SQLite / SQLAlchemy, eager loading
+│   ├── migrations.py    # Aggiornamento automatico della struttura del database (con backup)
+│   ├── models.py        # Modelli dati (Competition, Team, Problem, ...)
+│   ├── engine.py        # Motore di calcolo punteggi (nessun punteggio salvato)
+│   ├── tempo.py         # Tempo di gara: fine allo scadere, ripresa dopo un crash, avanzamenti
+│   ├── cache.py         # Cache in memoria con invalidazione esplicita
+│   ├── formato.py       # Tempi, date e stati in italiano per le pagine
+│   ├── esporta_pdf.py   # PDF dei risultati
+│   ├── routers/         # admin, inserimento, regia, display
+│   ├── templates/       # pagine (base.html, admin/, inserimento/, regia/, display/)
+│   └── static/          # Tailwind e Alpine.js in locale (funzionamento offline), modalità scura
 ├── launcher.py          # Finestra di avvio (eseguibile Windows)
-├── paths.py             # Percorsi di template, file statici e database
-├── auth.py              # Password, sessioni per dispositivo e permessi, limite ai tentativi
-├── database.py          # Setup SQLite / SQLAlchemy, eager loading
-├── migrations.py        # Aggiornamento automatico della struttura del database (con backup)
-├── tempo.py             # Tempo di gara: ripresa dopo un crash e avanzamento manuale
-├── models.py            # Modelli dati (Competition, Team, Problem, ...)
-├── engine.py            # Motore di calcolo punteggi (O(S), nessun punteggio salvato)
-├── cache.py             # Cache in memoria con TTL e invalidazione esplicita
-├── routers/
-│   ├── admin.py         # Gare, squadre, problemi, bonus/penalizzazioni, controllo stato
-│   ├── inserimento.py   # Jolly e soluzioni, storico consegne
-│   ├── regia.py         # Gestione display, scala testo, rivelazione finale
-│   └── display.py       # Viewer display, API JSON polling
-├── templates/
-│   ├── base.html
-│   ├── admin/
-│   ├── inserimento/
-│   ├── regia/
-│   └── display/
-├── static/vendor/       # Tailwind e Alpine.js in locale (funzionamento offline)
+├── tests/               # Test automatici (run.py: suite rapida e completa) e i loro script:
+│                        #   setup_test.py (gara di prova), test_data.py, test_live.py
 ├── packaging/           # Configurazione PyInstaller e Inno Setup, icona
+├── dati/                # (da sorgente, esclusa da git) database, backup, certificato
 ├── VERSION              # Numero di versione usato dall'installer
 ├── build_installer.bat  # Crea l'installer Windows
-├── avvia.bat            # Script di avvio Windows
-├── avvia.sh             # Script di avvio Linux/macOS
-├── tests/               # Test automatici (run.py: suite rapida e completa)
-├── setup_test.py        # Crea una gara di prova pronta all'avvio
-├── test_data.py         # Verifica dei calcoli dei punteggi (usato dai test)
-├── test_live.py         # Gara completa di 2 minuti (usato dalla suite completa)
+├── avvia.bat, avvia.sh  # Avvio da sorgente (Windows, Linux/macOS)
 └── requirements.txt
 ```
 
 ## Test
 
-I test girano su una copia temporanea del progetto con una porta libera: il `gare.db` vero
-non viene toccato e non serve avere il server acceso.
+I test girano su una copia temporanea del progetto con una porta libera: la cartella `dati/`
+(con il `gare.db` vero) non viene copiata né toccata e non serve avere il server acceso.
 
 ```bash
 # Suite rapida (meno di un minuto): da usare durante lo sviluppo
@@ -272,6 +274,6 @@ una VPN come ZeroTier); se manca, quei controlli vengono segnalati come saltati.
 ## Script di utilità
 
 ```bash
-# Crea una gara di prova (3 squadre + 1 ospite, 4 problemi, 10 minuti)
-python setup_test.py
+# Crea una gara di prova (3 squadre + 1 ospite, 4 problemi, 10 minuti) nel database di dati/
+python tests/setup_test.py
 ```

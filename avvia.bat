@@ -21,7 +21,7 @@ echo Altri dispositivi:   https://IP-DEL-COMPUTER:8443  (avviso del certificato 
 echo Premi CTRL+C per fermare.
 echo.
 
-%PYTHON% server.py
+%PYTHON% -m gdm.server
 
 echo.
 echo Server arrestato.

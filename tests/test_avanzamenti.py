@@ -77,11 +77,11 @@ check("avanzamento dal popup registrato 'dopo una chiusura del programma'",
       and "dopo una chiusura del programma" in req("/inserimento/1/consegne")[2])
 
 req("/admin/gara/1/termina", {})
-req("/admin/gara/1/blocco-inserimenti", {"bloccati": "1"})
+req("/admin/gara/1/archivio", {"archiviata": "1"})
 rid = db("SELECT id FROM time_adjustments")[0][0]
 st, h, _ = req(f"/admin/gara/1/avanzamenti/{rid}/modifica", {"minutes": "2", "seconds": "0"})
-check("inserimenti bloccati: correzione rifiutata", "errore=" in h["location"])
-check("inserimenti bloccati: niente pulsanti modifica/elimina",
+check("gara archiviata: correzione rifiutata", "errore=" in h["location"])
+check("gara archiviata: niente pulsanti modifica/elimina",
       "apriModificaAvanzamento(" not in req("/admin/gara/1")[2].split("<script>")[0])
 crash_server(srv)
 finish()

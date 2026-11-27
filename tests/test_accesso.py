@@ -55,7 +55,7 @@ st, _, b = r("/inserimento/api/firma")
 check("remoto: firma dell'elenco gare per l'aggiornamento automatico", st == 200 and len(b) == 16)
 st, h, _ = r("/admin/api/gara/1/firma")
 check("remoto: nessuna firma delle pagine Admin e Regia", st == 303 and "/admin" not in h["location"])
-for p in ("/admin/", "/regia/", "/regia/1"):
+for p in ("/admin/", "/regia/", "/regia/1", "/admin/gara/1/vista/ranking", "/admin/api/gara/1/vista/ranking/stato"):
     st, h, _ = r(p)
     check(f"remoto bloccato su {p}", st == 303 and h["location"] == "/inserimento/")
 st, h, _ = r("/regia/1/display/1/vista", {"view": "ranking"})

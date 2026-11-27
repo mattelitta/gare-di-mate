@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # (nome, script relativo alla radice, avviare il server?, incluso nella suite rapida?)
 TESTS = [
     ("Punteggi interi", "tests/test_interi.py", False, True),
-    ("Calcolo dei punteggi", "test_data.py", False, True),
+    ("Calcolo dei punteggi", "tests/test_data.py", False, True),
     ("Migrazioni del database", "tests/test_migrazioni.py", False, True),
     ("Accesso dei dispositivi", "tests/test_accesso.py", True, True),
     ("Storico consegne", "tests/test_consegne.py", True, True),
@@ -33,7 +33,7 @@ TESTS = [
     ("Inserimenti non validi", "tests/test_input.py", True, True),
     ("Stato gara e jolly", "tests/test_jolly.py", True, True),
     ("Visibilità dei jolly", "tests/test_jolly_visibili.py", True, True),
-    ("Fine gara: classifica e blocco", "tests/test_finale.py", True, True),
+    ("Fine gara: classifica e archivio", "tests/test_finale.py", True, True),
     ("Esportazione PDF", "tests/test_pdf.py", True, True),
     ("Sicurezza in rete", "tests/test_sicurezza.py", True, False),  # solo nella suite completa
     ("Fine automatica allo scadere", "tests/test_fine_auto.py", True, True),
@@ -44,7 +44,7 @@ TESTS = [
     ("Crash e avanzamento manuale", "tests/test_crash.py", False, False),
     ("Crash con due gare", "tests/test_crash_due.py", False, False),
     ("Modalità --migra (installer)", "tests/test_migra.py", False, False),
-    ("Gara completa di 2 minuti", "test_live.py", True, False),
+    ("Gara completa di 2 minuti", "tests/test_live.py", True, False),
 ]
 
 
@@ -83,13 +83,13 @@ def secondary_ip() -> str:
 def prepare_copy() -> Path:
     dest = Path(tempfile.mkdtemp(prefix="gdm-test-")) / "app"
     shutil.copytree(ROOT, dest, ignore=shutil.ignore_patterns(
-        ".git", "venv", ".venv", "build", "dist", "__pycache__", "*.db", "*.log", "certificato"))
+        ".git", "venv", ".venv", "build", "dist", "__pycache__", "*.db", "*.log", "certificato", "dati"))
     return dest
 
 
 def compile_all(app: Path) -> list[str]:
     errors = []
-    for f in [*app.glob("*.py"), *app.glob("routers/*.py"), *app.glob("tests/*.py")]:
+    for f in [*app.glob("*.py"), *app.glob("gdm/*.py"), *app.glob("gdm/routers/*.py"), *app.glob("tests/*.py")]:
         try:
             py_compile.compile(str(f), doraise=True)
         except py_compile.PyCompileError as e:
@@ -98,14 +98,14 @@ def compile_all(app: Path) -> list[str]:
 
 
 def fresh_database(app: Path):
-    for f in app.glob("gare*.db"):
+    for f in (app / "dati").glob("gare*.db"):
         f.unlink()
-    subprocess.run([sys.executable, "setup_test.py"], cwd=app, capture_output=True, check=True)
+    subprocess.run([sys.executable, "tests/setup_test.py"], cwd=app, capture_output=True, check=True)
 
 
 def start_server(app: Path, port: int, tls_port: int):
     log = open(app / "server.log", "a", encoding="utf-8")
-    p = subprocess.Popen([sys.executable, "server.py", "--http-port", str(port), "--https-port", str(tls_port)],
+    p = subprocess.Popen([sys.executable, "-m", "gdm.server", "--http-port", str(port), "--https-port", str(tls_port)],
                          cwd=app, stdout=log, stderr=log)
     for _ in range(80):
         try:

@@ -15,5 +15,6 @@ venv/
 build/
 dist/
 
-# Certificato HTTPS e chiave privata (creati al primo avvio, mai da pubblicare)
+# Dati da sorgente: database, backup, certificato HTTPS con la chiave privata, log (mai da pubblicare)
+dati/
 certificato/

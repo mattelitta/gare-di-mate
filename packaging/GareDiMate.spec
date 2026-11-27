@@ -11,13 +11,13 @@ a = Analysis(
     [str(ROOT / "launcher.py")],
     pathex=[str(ROOT)],
     datas=[
-        (str(ROOT / "templates"), "templates"),
-        (str(ROOT / "static"), "static"),
+        (str(ROOT / "gdm" / "templates"), "templates"),
+        (str(ROOT / "gdm" / "static"), "static"),
         (ICON, "."),
         (str(ROOT / "VERSION"), "."),
     ] + collect_data_files("fpdf"),  # dati di fpdf2 (esportazione PDF)
-    hiddenimports=collect_submodules("uvicorn") + ["esporta_pdf", "tls"],  # importati dentro una funzione
-    excludes=["test_data", "test_live", "setup_test"],
+    # tutto il pacchetto gdm (alcuni moduli si importano dentro una funzione, es. esporta_pdf e tls)
+    hiddenimports=collect_submodules("uvicorn") + collect_submodules("gdm"),
 )
 pyz = PYZ(a.pure)
 exe = EXE(

@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Modifica {{ comp.name }} — Admin{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Modifica parametri — {{ comp.name }}</h1>
+    <a href="/admin/gara/{{ comp.id }}" class="text-sm text-gray-500 hover:underline">← Torna alla gara</a>
+  </div>
+  {% if comp.status != 'created' %}
+  <div class="bg-orange-100 border border-orange-300 text-orange-800 rounded-lg px-4 py-3 mb-4 text-sm">
+    <span class="font-semibold">La gara è già iniziata.</span>
+    Modificare parametri, squadre o problemi (soprattutto le risposte) cambia subito i punteggi.
+  </div>
+  {% endif %}
+  <form method="post" action="/admin/gara/{{ comp.id }}/modifica" class="bg-white rounded-lg shadow p-6 space-y-4">
+
+    <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b">
+      <h2 class="font-semibold text-gray-700">Parametri della gara</h2>
+      <div class="flex gap-3">
+        <a href="/admin/gara/{{ comp.id }}" class="px-6 py-2 rounded border hover:bg-gray-50">Annulla</a>
+        <button type="submit" class="bg-blue-700 text-white px-6 py-2 rounded hover:bg-blue-800">Salva parametri</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="col-span-2">
+        <label class="block text-sm font-medium mb-1">Nome gara</label>
+        <input name="name" value="{{ comp.name }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Data <span class="text-gray-400 font-normal">(facoltativa)</span></label>
+        <input name="date" type="date" value="{{ comp.date }}" class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Tema display</label>
+        <select name="display_theme" class="w-full border rounded px-3 py-2">
+          <option value="dark" {% if comp.display_theme != 'light' %}selected{% endif %}>Scuro</option>
+          <option value="light" {% if comp.display_theme == 'light' %}selected{% endif %}>Chiaro (default, proiezione)</option>
+        </select>
+      </div>
+    </div>
+
+    <hr>
+    <h2 class="font-semibold text-gray-700">Parametri di punteggio</h2>
+    <div class="grid grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Valore iniziale</label>
+        <input name="initial_value" type="number" value="{{ comp.initial_value }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">n</label>
+        <input name="n" type="number" value="{{ comp.n }}" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">k</label>
+        <input name="k" type="number" value="{{ comp.k }}" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div class="col-span-3">
+        <label class="block text-sm font-medium mb-1">Punteggio iniziale delle squadre</label>
+        <input name="starting_score" type="number"
+               value="{{ comp.starting_score if comp.starting_score is not none else '' }}"
+               placeholder="Automatico: 10 × {{ comp.problems|length }} problemi = {{ 10 * comp.problems|length }}"
+               class="w-full border rounded px-3 py-2">
+        <p class="text-xs text-gray-500 mt-1">Lasciare vuoto per il valore automatico (10 punti per ogni problema).</p>
+      </div>
+      <div class="col-span-3">
+        <label class="block text-sm font-medium mb-1">Bonus prima consegna</label>
+        <input name="first_delivery_bonuses" value="{{ comp.first_delivery_bonuses|join(',') }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div class="col-span-3">
+        <label class="block text-sm font-medium mb-1">Bonus full</label>
+        <input name="full_bonuses" value="{{ comp.full_bonuses|join(',') }}" required class="w-full border rounded px-3 py-2">
+      </div>
+    </div>
+
+    <hr>
+    <h2 class="font-semibold text-gray-700">Parametri temporali (minuti)</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Durata gara</label>
+        <input name="duration_minutes" type="number" value="{{ comp.duration_minutes }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Tempo jolly</label>
+        <input name="jolly_time_minutes" type="number" value="{{ comp.jolly_time_minutes }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Tempo domande sul testo <span class="text-gray-400 font-normal">(facoltativo)</span></label>
+        <input name="questions_minutes" type="number" min="1" value="{{ comp.questions_minutes or '' }}" placeholder="es. 30"
+               class="w-full border rounded px-3 py-2">
+        <p class="text-xs text-gray-500 mt-1">Minuti dalla partenza. Non cambia nulla nella gara: il tempo rimanente
+          si vede nella pagina Admin e in quella degli inseritori. Vuoto se non previsto.</p>
+      </div>
+      <div class="col-span-2">
+        <label class="block text-sm font-medium mb-1">Jolly nei display</label>
+        <select name="jolly_reveal" class="w-full border rounded px-3 py-2">
+          <option value="immediate"{% if comp.jolly_reveal != 'deadline' %} selected{% endif %}>Visibili appena inseriti (default)</option>
+          <option value="deadline"{% if comp.jolly_reveal == 'deadline' %} selected{% endif %}>Tutti insieme alla chiusura dei jolly</option>
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Con la seconda scelta, fino alla chiusura i display contano i punti
+          senza il raddoppio del jolly, che altrimenti lo rivelerebbe. Admin e inseritori vedono sempre tutto.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Minuto soglia</label>
+        <input name="threshold_minute" type="number" value="{{ comp.threshold_minute }}" required class="w-full border rounded px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Minuto oscuramento</label>
+        <input name="blackout_minute" type="number" value="{{ comp.blackout_minute }}" required class="w-full border rounded px-3 py-2">
+      </div>
+    </div>
+
+    <hr>
+    <h2 class="font-semibold text-gray-700">Classifica</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <div x-data="{ qualificazione: {{ 'true' if comp.num_qualified else 'false' }} }">
+        <label class="flex items-center gap-2 text-sm font-medium mb-2 cursor-pointer select-none">
+          <input type="checkbox" value="1" name="qualificazione" x-model="qualificazione" class="w-4 h-4">
+          Gara a qualificazione
+        </label>
+        <div x-show="qualificazione" x-cloak>
+          <label class="block text-sm font-medium mb-1">Quante squadre si qualificano</label>
+          <input name="num_qualified" type="number" min="1" value="{{ comp.num_qualified or '' }}" placeholder="es. 3"
+                 :disabled="!qualificazione" :required="qualificazione" class="w-full border rounded px-3 py-2">
+        </div>
+        <p x-show="!qualificazione" class="text-xs text-gray-500">Nessuna linea delle qualificate in classifica.</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Posizioni da rivelare</label>
+        <input name="final_reveal_count" type="number" value="{{ comp.final_reveal_count }}" min="1" required class="w-full border rounded px-3 py-2">
+      </div>
+    </div>
+  </form>
+
+  <!-- Squadre -->
+  <div id="squadre" class="bg-white rounded-lg shadow p-6 mt-6 scroll-mt-4">
+    <h2 class="font-semibold text-gray-700 mb-3">Squadre ({{ comp.teams|length }})</h2>
+    <div class="space-y-1 mb-4">
+      {% for team in comp.teams|sort(attribute='number') %}
+      <div class="flex items-center justify-between text-sm py-1 border-b last:border-0">
+        <span>
+          <span class="font-mono text-xs text-gray-400 mr-1">{{ "%02d"|format(team.number) }}</span>
+          <strong>{{ team.name }}</strong>{% if team.city %} ({{ team.city }}){% endif %}
+          {% if team.is_guest %}<span class="text-xs text-orange-500 ml-1">ospite</span>{% endif %}
+        </span>
+        <div class="flex gap-2">
+          <a href="#" onclick="openEditTeam({{ team.id }}, {{ team.number }}, '{{ team.name|replace("'","\\'")|e }}', '{{ team.city|replace("'","\\'")|e }}', {{ team.is_guest|lower }}); return false;"
+             class="text-blue-600 hover:underline text-xs">modifica</a>
+          <form method="post" action="/admin/gara/{{ comp.id }}/squadre/{{ team.id }}/elimina"
+                data-conferma="Eliminare la squadra {{ team.name }}?" data-conferma-ok="Elimina">
+            <button class="text-red-500 hover:underline text-xs">elimina</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-gray-400 text-sm">Nessuna squadra.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="/admin/gara/{{ comp.id }}/squadre/aggiungi" class="grid grid-cols-6 gap-2 text-sm items-center">
+      {# Numero precompilato con il successivo libero (modificabile). #}
+      <input name="number" type="number" min="1" placeholder="N°" class="border rounded px-2 py-1.5" required
+             value="{{ (comp.teams|map(attribute='number')|max or 0) + 1 }}">
+      <input id="nuova-squadra-nome" name="name" placeholder="Nome" class="border rounded px-2 py-1.5 col-span-2" required>
+      <input name="city" placeholder="Città (facoltativa)" class="border rounded px-2 py-1.5 col-span-2">
+      <button type="submit" class="bg-blue-700 text-white rounded px-2 py-1.5 hover:bg-blue-800">Aggiungi</button>
+      <label class="col-span-6 flex items-center gap-1 text-xs text-gray-600">
+        <input name="is_guest" type="checkbox" value="true"> Ospite
+      </label>
+    </form>
+  </div>
+
+  <!-- Problemi -->
+  <div id="problemi" class="bg-white rounded-lg shadow p-6 mt-6 scroll-mt-4">
+    <h2 class="font-semibold text-gray-700 mb-3">Problemi ({{ comp.problems|length }})</h2>
+    <div class="space-y-1 mb-4">
+      {% for prob in comp.problems|sort(attribute='number') %}
+      <div class="flex items-center justify-between text-sm py-1 border-b last:border-0">
+        <span>
+          <span class="font-mono text-xs text-gray-400 mr-1">{{ "%02d"|format(prob.number) }}</span>
+          <strong>{{ prob.name }}</strong>
+          <span class="font-mono text-xs text-gray-500 ml-1">[{{ prob.answer }}]</span>
+        </span>
+        <div class="flex gap-2">
+          <a href="#" onclick="openEditProb({{ prob.id }}, {{ prob.number }}, '{{ prob.name|replace("'","\\'")|e }}', '{{ prob.answer }}'); return false;"
+             class="text-blue-600 hover:underline text-xs">modifica</a>
+          <form method="post" action="/admin/gara/{{ comp.id }}/problemi/{{ prob.id }}/elimina"
+                data-conferma="Eliminare il problema {{ prob.name }}?" data-conferma-ok="Elimina">
+            <button class="text-red-500 hover:underline text-xs">elimina</button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+      <p class="text-gray-400 text-sm">Nessun problema.</p>
+      {% endfor %}
+    </div>
+    <form method="post" action="/admin/gara/{{ comp.id }}/problemi/aggiungi" class="grid grid-cols-6 gap-2 text-sm">
+      <input name="number" type="number" min="1" placeholder="N°" class="border rounded px-2 py-1.5" required
+             value="{{ (comp.problems|map(attribute='number')|max or 0) + 1 }}">
+      <input id="nuovo-problema-nome" name="name" placeholder="Nome" class="border rounded px-2 py-1.5 col-span-3" required>
+      <input name="answer" placeholder="Risposta" maxlength="4" class="border rounded px-2 py-1.5 font-mono" required>
+      <button type="submit" class="bg-blue-700 text-white rounded px-2 py-1.5 hover:bg-blue-800">Aggiungi</button>
+    </form>
+  </div>
+</div>
+
+<!-- Finestra modifica squadra -->
+<div id="modal-team" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-xl p-6 w-96">
+    <h3 class="font-semibold mb-4">Modifica squadra</h3>
+    <form id="form-edit-team" method="post" class="space-y-3">
+      <input id="et-number" name="number" type="number" placeholder="N°" class="w-full border rounded px-3 py-2" required>
+      <input id="et-name" name="name" placeholder="Nome" class="w-full border rounded px-3 py-2" required>
+      <input id="et-city" name="city" placeholder="Città (facoltativa)" class="w-full border rounded px-3 py-2">
+      <label class="flex items-center gap-2"><input id="et-guest" name="is_guest" type="checkbox" value="true"> Ospite</label>
+      <div class="flex gap-2 pt-1">
+        <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800">Salva</button>
+        <button type="button" onclick="document.getElementById('modal-team').classList.add('hidden')"
+                class="px-4 py-2 rounded border hover:bg-gray-50">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Finestra modifica problema -->
+<div id="modal-prob" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-xl p-6 w-96">
+    <h3 class="font-semibold mb-4">Modifica problema</h3>
+    <form id="form-edit-prob" method="post" class="space-y-3">
+      <input id="ep-number" name="number" type="number" placeholder="N°" class="w-full border rounded px-3 py-2" required>
+      <input id="ep-name" name="name" placeholder="Nome" class="w-full border rounded px-3 py-2" required>
+      <input id="ep-answer" name="answer" placeholder="Risposta" maxlength="4" class="w-full border rounded px-3 py-2 font-mono" required>
+      <div class="flex gap-2 pt-1">
+        <button type="submit" class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800">Salva</button>
+        <button type="button" onclick="document.getElementById('modal-prob').classList.add('hidden')"
+                class="px-4 py-2 rounded border hover:bg-gray-50">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// Dopo un'aggiunta si torna su #squadre o #problemi: cursore sul nome della prossima voce.
+const campoNome = {'#squadre': 'nuova-squadra-nome', '#problemi': 'nuovo-problema-nome'}[location.hash];
+if (campoNome) document.getElementById(campoNome).focus();
+
+function openEditTeam(id, number, name, city, isGuest) {
+  document.getElementById('form-edit-team').action = '/admin/gara/{{ comp.id }}/squadre/' + id + '/modifica';
+  document.getElementById('et-number').value = number;
+  document.getElementById('et-name').value = name;
+  document.getElementById('et-city').value = city;
+  document.getElementById('et-guest').checked = isGuest;
+  document.getElementById('modal-team').classList.remove('hidden');
+}
+function openEditProb(id, number, name, answer) {
+  document.getElementById('form-edit-prob').action = '/admin/gara/{{ comp.id }}/problemi/' + id + '/modifica';
+  document.getElementById('ep-number').value = number;
+  document.getElementById('ep-name').value = name;
+  document.getElementById('ep-answer').value = answer;
+  document.getElementById('modal-prob').classList.remove('hidden');
+}
+</script>
+{% endblock %}

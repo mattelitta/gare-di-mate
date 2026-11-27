@@ -20,8 +20,9 @@ BASE = f"http://127.0.0.1:{PORT}"
 REMOTE_IP = os.environ.get("GDM_REMOTE_IP", "")
 REMOTE = f"https://{REMOTE_IP}:{TLS_PORT}" if REMOTE_IP else ""  # simula un dispositivo in rete
 REMOTE_HTTP = f"http://{REMOTE_IP}:{PORT}" if REMOTE_IP else ""  # lo stesso dispositivo sulla porta HTTP
-CERT = APP / "certificato" / "certificato.pem"
-DB = APP / "gare.db"
+DATI = APP / "dati"  # da sorgente database, backup e certificato stanno qui (gdm/paths.py)
+CERT = DATI / "certificato" / "certificato.pem"
+DB = DATI / "gare.db"
 
 sys.path.insert(0, str(APP))
 sys.stdout.reconfigure(encoding="utf-8")
@@ -64,7 +65,7 @@ _default = _Lazy()
 
 def req(path, data=None, op=None, base=None):
     """GET (o POST se data non è None). Ritorna (status, headers, testo)."""
-    body = urllib.parse.urlencode(data).encode() if data is not None else None
+    body = urllib.parse.urlencode(data, doseq=True).encode() if data is not None else None  # liste = campi ripetuti
     try:
         r = (op or _default).open((base or BASE) + path, body, timeout=15)
         return r.status, r.headers, r.read().decode()
@@ -94,7 +95,7 @@ def wait_server(base=None):
 
 def start_server():
     log = open(APP / "server.log", "a", encoding="utf-8")
-    p = subprocess.Popen([sys.executable, "server.py", "--http-port", str(PORT), "--https-port", str(TLS_PORT)],
+    p = subprocess.Popen([sys.executable, "-m", "gdm.server", "--http-port", str(PORT), "--https-port", str(TLS_PORT)],
                          cwd=APP, stdout=log, stderr=log)
     wait_server()
     return p
@@ -119,8 +120,8 @@ def make_legacy_db(path: Path, with_data=True):
     """Database come quelli della versione 1.0.x (schema 0): senza le colonne e le tabelle
     aggiunte dalle migrazioni successive."""
     from sqlalchemy import create_engine
-    from database import Base
-    import models  # noqa: F401
+    from gdm.database import Base
+    from gdm import models  # noqa: F401
     path.unlink(missing_ok=True)
     e = create_engine(f"sqlite:///{path.as_posix()}")
     Base.metadata.create_all(bind=e)

@@ -4,9 +4,9 @@ import sqlite3
 from sqlalchemy import create_engine
 
 from _util import APP, check, finish, make_legacy_db
-import migrations
-import models  # noqa: F401  (registra le tabelle in Base)
-from database import Base
+from gdm import migrations
+from gdm import models  # noqa: F401  (registra le tabelle in Base)
+from gdm.database import Base
 
 WORK = APP / "_migrazioni"
 WORK.mkdir(exist_ok=True)
@@ -53,8 +53,8 @@ check(f"database 1.0: schema {N}, colonne aggiunte",
       v == N and "device_id" in cols["submissions"] and "time_offset_seconds" in cols["competitions"])
 check("database 1.0: dati conservati", counts == counts0)
 c = sqlite3.connect(p)
-check("database 1.0: la gara bloccata col vecchio sistema ha gli inserimenti bloccati",
-      c.execute("SELECT insertions_locked, final_ranking_json FROM competitions").fetchone() == (1, None))
+check("database 1.0: la gara bloccata col vecchio sistema risulta archiviata (a mano)",
+      c.execute("SELECT insertions_locked, archived_manual, final_ranking_json FROM competitions").fetchone() == (1, 1, None))
 c.close()
 check("database 1.0: un backup identico all'originale",
       len(backups()) == 1 and info(backups()[0])[0] == 0 and info(backups()[0])[2] == counts0)

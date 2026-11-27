@@ -4,7 +4,7 @@ from types import SimpleNamespace as NS
 from urllib.parse import parse_qs, urlsplit
 
 from _util import check, db, finish, req
-from routers.inserimento import _problema_jolly_predefinito
+from gdm.routers.inserimento import _problema_jolly_predefinito
 
 
 def stato():

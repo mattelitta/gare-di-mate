@@ -22,4 +22,4 @@ echo "Altri dispositivi:   https://IP-DEL-COMPUTER:8443  (avviso del certificato
 echo "Premi CTRL+C per fermare."
 echo
 
-exec "$PYTHON" server.py
+exec "$PYTHON" -m gdm.server

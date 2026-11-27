@@ -44,7 +44,7 @@ check("'Termina' la oscura di nuovo", oscurata() and nota().startswith("automati
 toggle(False)
 check("a gara terminata si può mostrare a mano", not oscurata())
 
-viewer = (APP / "templates" / "display" / "viewer.html").read_text(encoding="utf-8")
+viewer = (APP / "gdm" / "templates" / "display" / "viewer.html").read_text(encoding="utf-8")
 for funzione in ("renderRanking", "renderTeamList", "renderCompStatus"):
     corpo = viewer.split(f"function {funzione}()")[1][:120]
     check(f"display: {funzione} mostra la schermata di oscuramento", "schermataOscurata()" in corpo)
@@ -57,8 +57,29 @@ db("DELETE FROM time_adjustments")
 req("/admin/gara/1/avvia", {})
 g = req("/admin/gara/1")[2]
 scadenze = re.findall(r'data-prima="([^"]+)"', g)
-check("scadenze in ordine fisso: jolly, valori, oscuramento, fine gara (anche se l'oscuramento viene prima)",
-      scadenze == ["Chiusura jolly", "Congelamento valori", "Oscuramento", "Fine gara"], str(scadenze))
+check("scadenze in ordine di tempo: jolly (5), oscuramento (7), valori (8), fine gara (10)",
+      scadenze == ["Chiusura jolly", "Oscuramento", "Congelamento valori", "Fine gara"], str(scadenze))
+check("senza tempo per le domande sul testo: nessuna scadenza, parametro 'non previste'",
+      "Domande sul testo" not in scadenze and "non previste" in g)
+db("UPDATE competitions SET questions_minutes=6 WHERE id=1")
+g = req("/admin/gara/1")[2]
+scadenze = re.findall(r'data-prima="([^"]+)"', g)
+check("domande sul testo al minuto 6: tra le scadenze, al loro posto in ordine di tempo",
+      scadenze == ["Chiusura jolly", "Domande sul testo", "Oscuramento", "Congelamento valori", "Fine gara"], str(scadenze))
+stato_ins = json.loads(req("/inserimento/1/stato")[2])
+pagina_ins = req("/inserimento/1")[2]
+check("inseritori: domande sul testo e scelta jolly nella barra, in ordine di tempo",
+      stato_ins["questions_seconds"] == 360 and "scadenze()" in pagina_ins
+      and "'Domande sul testo'" in pagina_ins and "l.sort((a, b) => a.sec - b.sec)" in pagina_ins)
+check("colori: giallo negli ultimi 2 minuti per tutti; rosso (primo minuto dopo) solo per jolly e domande",
+      g.count('data-rosso="1"') == 2 and re.search(r'data-prima="Chiusura jolly"[^>]*data-rosso', g)
+      and re.search(r'data-prima="Domande sul testo"[^>]*data-rosso', g)
+      and "AVVISO_SECONDI = 120, SCADUTO_SECONDI = 60" in g
+      and "this.evidenza(this.jollySec, true)" in pagina_ins and "this.evidenza(this.domandeSec, true)" in pagina_ins
+      and "classeFase(evidenza(durata))" in pagina_ins)
+check("inseritori: congelamento e oscuramento non compaiono (solo nella pagina Admin)",
+      "threshold_seconds" not in stato_ins and "blackout_seconds" not in stato_ins
+      and "'Congelamento valori'" not in pagina_ins and "'Oscuramento'" not in pagina_ins)
 db("UPDATE competitions SET blackout_minute=duration_minutes WHERE id=1")
 scadenze = re.findall(r'data-prima="([^"]+)"', req("/admin/gara/1")[2])
 check("se l'oscuramento coincide con la fine della gara non compare tra le scadenze", "Oscuramento" not in scadenze, str(scadenze))

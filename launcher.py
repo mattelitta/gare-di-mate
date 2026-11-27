@@ -9,9 +9,9 @@ import urllib.request
 import webbrowser
 from tkinter import messagebox
 
-from paths import BASE_DIR, DATA_DIR
+from gdm.paths import DATA_DIR, ROOT_DIR
 
-import server  # noqa: E402  (porte e avvio dei due server)
+from gdm import server  # noqa: E402  (porte e avvio dei due server)
 
 PORT = server.HTTP_PORT          # questo computer (Admin, Regia)
 HTTPS_PORT = server.HTTPS_PORT   # gli altri dispositivi, cifrata
@@ -33,7 +33,7 @@ GREEN, ORANGE, RED = "#15803d", "#c2410c", "#b91c1c"
 
 def app_version() -> str:
     try:
-        return (BASE_DIR / "VERSION").read_text(encoding="utf-8").strip()
+        return (ROOT_DIR / "VERSION").read_text(encoding="utf-8").strip()
     except OSError:
         return ""
 
@@ -66,7 +66,9 @@ class Launcher:
 
         root.title("Gare di Mate")
         root.resizable(False, False)
-        icon = BASE_DIR / "icon.ico"
+        icon = ROOT_DIR / "icon.ico"
+        if not icon.exists():  # da sorgente l'icona sta in packaging/
+            icon = ROOT_DIR / "packaging" / "icon.ico"
         if icon.exists():
             root.iconbitmap(default=str(icon))
         root.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -112,7 +114,7 @@ class Launcher:
         self.status.config(text=f"● {text}", fg=color)
 
     def refresh_ip(self):
-        from auth import get_local_ip
+        from gdm.auth import get_local_ip
         ip = get_local_ip()
         self.url_var.set(f"https://{ip}:{HTTPS_PORT}" if ip != "N/D" else "rete non disponibile")
         self.root.after(10_000, self.refresh_ip)
@@ -134,16 +136,16 @@ class Launcher:
 
     def run_server(self):
         try:
-            from database import init_db
-            from migrations import MigrationError, SchemaTooNewError
+            from gdm.database import init_db
+            from gdm.migrations import MigrationError, SchemaTooNewError
             try:
                 init_db()
             except (MigrationError, SchemaTooNewError) as e:
                 logging.exception("Database non utilizzabile")
                 self.fatal_error = str(e)
                 return
-            import tls
-            from main import app
+            from gdm import tls
+            from gdm.main import app
             self.servers = server.create_servers(app, log_config=None)
             fp = tls.fingerprint()
             self.fp_var.set(f"Impronta del certificato: {fp[:23]}…" if fp else "")
@@ -187,8 +189,8 @@ class Launcher:
 def migrate_only() -> int:
     """Modalità --migra, usata dall'installer: aggiorna il database e termina.
     Codici di uscita: 0 = ok, 1 = errore, 2 = database di una versione più recente."""
-    from database import init_db
-    from migrations import SchemaTooNewError
+    from gdm.database import init_db
+    from gdm.migrations import SchemaTooNewError
     try:
         logging.info("--migra: database %s", init_db())
         return 0

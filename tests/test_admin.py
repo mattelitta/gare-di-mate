@@ -65,7 +65,7 @@ check("modifica consegna: nessuna '()' vuota nel testo", "()" not in testo)
 
 # --- finestre di conferma: "Annulla" selezionato per le azioni pericolose, "Conferma" per le consegne ---
 import pathlib
-radice = pathlib.Path(__file__).resolve().parent.parent / "templates"
+radice = pathlib.Path(__file__).resolve().parent.parent / "gdm" / "templates"
 con_confirm = [str(p.relative_to(radice)) for p in radice.rglob("*.html")
                if "confirm(" in re.sub(r"\{#.*?#\}", "", p.read_text(encoding="utf-8"), flags=re.S)]
 check("nessun confirm() del browser (seleziona sempre OK)", not con_confirm, ", ".join(con_confirm))
@@ -171,6 +171,57 @@ check("regia: a scala 7 il tasto '+' è disattivato",
 viewer = req(f"/display/1/schermo/{d}")[2]
 check("display: preset di scala 6 e 7", "  6: { rankW:" in viewer and "  7: { rankW:" in viewer)
 req(f"/regia/1/display/{d}/scala", {"scale": "3"})
+
+# --- più viste che si alternano ---
+import time as _time
+R = f"/regia/1/display/{d}/rotazione"
+check("regia: interruttore 'Alterna più viste' e scelta delle viste con i secondi",
+      "Alterna più viste" in req("/regia/1")[2] and f'action="{R}"' in req("/regia/1")[2])
+st, h, _ = req(R, {"rotazione": "1", "viste": "ranking", "secondi": "10"})
+check("una sola vista scelta: rifiutata con avviso", "errore=" in h["location"]
+      and db(f"SELECT rotation_enabled FROM displays WHERE id={d}")[0][0] == 0)
+st, h, _ = req(R, {"rotazione": "1", "viste": ["ranking", "matrix"], "secondi": "2"})
+check("secondi fuori dai limiti (3–3600): rifiutati", "errore=" in h["location"])
+req(R, {"rotazione": "1", "viste": ["matrix", "ranking", "test"], "secondi": "5"})
+check("rotazione salvata (nell'ordine delle viste, senza la vista di test)",
+      db(f"SELECT rotation_enabled, rotation_views_json, rotation_seconds FROM displays WHERE id={d}")[0]
+      == (1, '["ranking", "matrix"]', 5))
+check("regia: etichetta con le viste che si alternano e i secondi", "ogni 5 s" in req("/regia/1")[2])
+def vista():
+    return json.loads(req(f"/display/api/1/schermo/{d}/stato")[2])["view"]
+attesa = 5 - (_time.time() % 5)
+if attesa < 0.5:
+    _time.sleep(attesa + 0.1)
+prima = vista()
+_time.sleep(5)
+check("il display alterna le viste ogni 5 secondi", {prima, vista()} == {"ranking", "matrix"})
+req(R, {})
+check("tolta la spunta: torna alla vista singola scelta prima",
+      db(f"SELECT rotation_enabled FROM displays WHERE id={d}")[0][0] == 0
+      and vista() == db(f"SELECT current_view FROM displays WHERE id={d}")[0][0])
+
+# --- viste dei display in finestre dell'Admin (non display della regia, sempre interne) ---
+n_display = db("SELECT COUNT(*) FROM displays")[0][0]
+g = req("/admin/gara/1")[2]
+check("pagina gara: sezione 'Viste' con Classifica, Valori problemi, Stato gara, Matrice",
+      all(f"/admin/gara/1/vista/{v}" in g for v in ("ranking", "problem_values", "competition_status", "matrix")))
+check("le finestre si aprono (pagina del viewer)", all(req(f"/admin/gara/1/vista/{v}")[0] == 200
+                                                       for v in ("ranking", "problem_values", "competition_status", "matrix")))
+check("niente finestre per le altre viste (test, classifica finale…)", req("/admin/gara/1/vista/final_ranking")[0] == 404)
+req("/admin/gara/1/oscuramento", {"oscurata": "1"})
+v = json.loads(req("/admin/api/gara/1/vista/ranking/stato")[2])
+check("sempre interne: con l'oscuramento la finestra vede comunque la classifica",
+      v["internal"] is True and v["blackout_active"] is False and v["teams"] and v["view"] == "ranking")
+req("/admin/gara/1/oscuramento", {})
+check("non creano display della regia", db("SELECT COUNT(*) FROM displays")[0][0] == n_display)
+
+# --- stato delle gare in italiano negli elenchi ---
+ETICHETTE = {"created": "Non iniziata", "running": "In corso", "paused": "In pausa", "ended": "Terminata"}
+stato1 = db("SELECT status FROM competitions WHERE id=1")[0][0]
+for elenco in ("/admin/", "/regia/", "/inserimento/", "/display/"):
+    b = req(elenco)[2]
+    check(f"{elenco}: stato in italiano ({ETICHETTE[stato1]}), non '{stato1}'",
+          ETICHETTE[stato1] in b and re.search(rf">\s*{stato1}\s*<", b) is None)
 
 # --- il computer server è riconosciuto solo da 127.0.0.1 ---
 st, _, home = req("/", base=BASE)

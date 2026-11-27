@@ -89,6 +89,25 @@ campi_q.pop("num_qualified", None)
 req(f"/admin/gara/{q}/modifica", campi_q)
 check("modifica togliendo la spunta: torna 0", db(f"SELECT num_qualified FROM competitions WHERE id={q}")[0][0] == 0)
 
+# --- tempo per le domande sul testo (facoltativo, solo informativo) ---
+st, h, _ = crea()
+d0 = int(re.search(r"/gara/(\d+)/", h["location"]).group(1))
+check("domande sul testo: vuoto = non previste", db(f"SELECT questions_minutes FROM competitions WHERE id={d0}")[0][0] is None)
+check("domande sul testo: 30 minuti precompilati nel modulo di creazione",
+      re.search(r'name="questions_minutes"[^>]*value="30"', req("/admin/crea")[2]) is not None)
+st, h, _ = crea(questions_minutes="20")
+d1 = int(re.search(r"/gara/(\d+)/", h["location"]).group(1))
+check("domande sul testo: 20 minuti salvati e mostrati nei parametri",
+      db(f"SELECT questions_minutes FROM competitions WHERE id={d1}")[0][0] == 20
+      and "Domande sul testo</span><span>20 min</span>" in req(f"/admin/gara/{d1}")[2])
+st, _, b = crea(questions_minutes="500")
+check("domande sul testo oltre la durata: rifiutato", st == 400 and "domande sul testo" in b)
+m = req(f"/admin/gara/{d1}/modifica")[2]
+check("modifica: campo precompilato", re.search(r'name="questions_minutes"[^>]*value="20"', m) is not None)
+st, h, _ = req(f"/admin/gara/{d1}/copia", {})
+copia_d = int(re.search(r"/gara/(\d+)", h["location"]).group(1))
+check("la copia mantiene il tempo per le domande", db(f"SELECT questions_minutes FROM competitions WHERE id={copia_d}")[0][0] == 20)
+
 # --- data facoltativa ---
 st, h, _ = req("/admin/crea", {"name": "Senza data", "threshold_minute": "60", "blackout_minute": "80"})
 sd = int(re.search(r"/gara/(\d+)/", h["location"]).group(1))
