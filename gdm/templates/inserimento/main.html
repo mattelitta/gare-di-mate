@@ -2,10 +2,11 @@
 {% block title %}Inserimento — {{ comp.name }}{% endblock %}
 {% block content %}
 {# Nome della gara grande e centrato: con più gare in corso si vede subito su quale si sta inserendo. #}
-<div class="grid grid-cols-[1fr_auto_1fr] items-center gap-3 mb-4">
+{# Su telefono il nome sta sopra a tutta larghezza e i due link sotto, ai lati; da 640 px in su su una riga. #}
+<div class="grid grid-cols-2 sm:grid-cols-[1fr_auto_1fr] items-center gap-x-3 gap-y-2 mb-4">
   <a href="/inserimento/" class="justify-self-start text-sm text-gray-500 hover:underline whitespace-nowrap">← Tutte le gare</a>
-  <div class="text-center">
-    <h1 class="text-3xl font-bold leading-tight">{{ comp.name }}</h1>
+  <div class="text-center col-span-2 sm:col-span-1 order-first sm:order-none">
+    <h1 class="text-2xl sm:text-3xl font-bold leading-tight">{{ comp.name }}</h1>
     {% if comp.date %}<span class="text-sm text-gray-500">{{ comp.date }}</span>{% endif %}
   </div>
   <a href="/inserimento/{{ comp.id }}/consegne"
@@ -34,9 +35,9 @@
      l'etichetta sopra il tempo, così ogni voce sta nella sua metà anche su un telefono; da 640 px in su
      una riga: stato e fine gara a sinistra, le scadenze distribuite nel resto, etichetta accanto al tempo.
      Il -ml-2 dei tempi annulla il ml-2 della prima parte quando sono sotto l'etichetta. #}
-  <div class="md:col-span-2 bg-white rounded-lg shadow px-3 py-2 grid grid-cols-2 items-center gap-x-2 gap-y-1
-              sm:flex sm:flex-wrap sm:gap-x-4">
-    <div class="voce-stato flex flex-col items-start sm:flex-row sm:items-center sm:h-11 px-3 py-1 sm:py-0 rounded-lg">
+  <div class="md:col-span-2 bg-white rounded-lg shadow px-3 py-2 grid grid-cols-2 items-start gap-x-2 gap-y-1
+              sm:flex sm:flex-wrap sm:items-center sm:gap-x-4">
+    <div class="voce-stato flex flex-col items-start sm:flex-row sm:items-center sm:h-11 px-2 sm:px-3 py-1 sm:py-0 rounded-lg">
       <span class="text-sm text-gray-500">Stato</span>
       <div class="flex flex-wrap items-center gap-y-1 -ml-2 sm:ml-0">
         <span class="ml-2 px-2.5 py-0.5 rounded-full text-sm font-semibold" :class="classeStato()" x-text="etichettaStato()"></span>
@@ -45,12 +46,14 @@
         </span>
       </div>
     </div>
-    <div class="voce-stato flex items-center sm:h-11 px-3 py-1 sm:py-0 rounded-lg" :class="classeFase(evidenza(durata))">
+    <div class="voce-stato flex items-center sm:h-11 px-2 sm:px-3 py-1 sm:py-0 rounded-lg" :class="classeFase(evidenza(durata))">
       <div class="flex flex-col sm:flex-row sm:items-baseline">
         <span class="text-sm whitespace-nowrap" :class="evidenza(durata) ? '' : 'text-gray-500'">Fine gara</span>
-        <div class="flex items-baseline whitespace-nowrap -ml-2 sm:ml-0">
+        {# Le parti ("tra", il tempo, "dalla partenza"…) stanno insieme ma su telefono possono andare a capo;
+           ogni parte e il tempo restano interi. Lo spazio fra le parti è il gap, così a capo non c'è rientro. #}
+        <div class="flex flex-wrap sm:flex-nowrap items-baseline gap-x-2 sm:ml-2">
           <template x-for="(parte, i) in fine()" :key="i">
-            <span x-show="parte" x-text="parte" class="ml-2"
+            <span x-show="parte" x-text="parte" class="whitespace-nowrap"
                   :class="i === 1 ? 'font-mono text-2xl font-bold' : 'text-sm'"></span>
           </template>
         </div>
@@ -59,14 +62,15 @@
     <div class="hidden sm:block h-8 border-l-2" aria-hidden="true"></div>
     <div class="contents sm:flex sm:flex-1 sm:flex-wrap sm:items-center sm:justify-evenly sm:gap-x-4 sm:gap-y-1">
       <template x-for="s in scadenze()" :key="s.chiave">
-        <div class="voce-stato flex items-center sm:h-11 px-3 py-1 sm:py-0 rounded-lg whitespace-nowrap"
+        {# Su telefono l'etichetta può andare a capo (testo ingrandito dal sistema), il tempo mai. #}
+        <div class="voce-stato flex items-center sm:h-11 px-2 sm:px-3 py-1 sm:py-0 rounded-lg sm:whitespace-nowrap"
              :class="classeFase(s.evid)">
           <div class="flex flex-col sm:flex-row sm:items-baseline">
             <span class="text-sm" x-text="s.etichetta"
                   :class="s.evid ? '' : 'text-gray-500'"></span>
-            <div class="flex items-baseline -ml-2 sm:ml-0">
+            <div class="flex flex-wrap sm:flex-nowrap items-baseline gap-x-2 sm:ml-2">
               <template x-for="(parte, i) in s.parti" :key="i">
-                <span x-show="parte" x-text="parte" class="ml-2"
+                <span x-show="parte" x-text="parte" class="whitespace-nowrap"
                       :class="i === 1 ? 'font-mono text-2xl font-bold' : 'text-sm'"></span>
               </template>
             </div>

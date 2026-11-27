@@ -5,10 +5,11 @@ cui sono state disegnate; ogni 2 secondi la richiedono di nuovo al server (base.
 cambiata (gara avviata, messa in pausa, oscurata allo scattare del minuto, terminata allo scadere,
 classifica finale calcolata, cambiamenti fatti da un'altra finestra...), si ricaricano da sole.
 La firma contiene solo ciò che cambia l'aspetto della pagina: non il tempo che scorre (ci pensa
-il cronometro nella pagina) né l'ultimo contatto dei display.
+il cronometro nella pagina) né l'ultimo contatto dei display, ma sì chi è collegato a ciascuno.
 """
 import hashlib
 
+from gdm import collegamenti
 from gdm.models import AccessSession, Competition
 
 
@@ -23,8 +24,9 @@ def gara(comp: Competition, regia: bool = False) -> str:
              round(comp.time_offset_seconds or 0.0, 3), len(comp.time_adjustments), len(comp.penalties),
              len(comp.teams), len(comp.problems)]
     if regia:
+        # anche chi è collegato a ogni display: la regia si aggiorna quando un dispositivo si collega o va via
         parti += [(d.id, d.name, d.current_view, d.text_scale, d.internal,
-                   d.rotation_enabled, d.rotation_views_json, d.rotation_seconds)
+                   d.rotation_enabled, d.rotation_views_json, d.rotation_seconds, tuple(collegamenti.collegati(d.id)))
                   for d in sorted(comp.displays, key=lambda d: d.id)]
     return _h(*parti)
 

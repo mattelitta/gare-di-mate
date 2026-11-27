@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from gdm import auth
+from gdm import auth, collegamenti
 from gdm import firma
 from gdm.database import get_db
 from gdm import formato
@@ -44,7 +44,8 @@ async def regia_main(request: Request, comp_id: int, db: Session = Depends(get_d
         "views": VIEWS,
         "scala_max": SCALA_MAX,
         "rotazione_secondi": ROTAZIONE_SECONDI,
-        "adesso": datetime.utcnow(),  # un display che interroga il server da meno di 15 s è "collegato"
+        # dispositivi che mostrano ogni display adesso (anche più di uno sullo stesso display)
+        "collegati": {d.id: collegamenti.collegati(d.id) for d in displays},
         "local_ip": auth.get_local_ip(),
         "https_port": getattr(request.app.state, "https_port", None) or 8443,
         "firma": firma.gara(comp, regia=True), "firma_url": f"/admin/api/gara/{comp_id}/firma?regia=1",
@@ -96,6 +97,7 @@ async def regia_elimina_display(
         raise HTTPException(status_code=404)
     db.delete(disp)
     db.commit()
+    collegamenti.dimentica(display_id)
     return RedirectResponse(f"/regia/{comp_id}", status_code=303)
 
 

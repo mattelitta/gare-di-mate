@@ -80,7 +80,7 @@
   {% if displays %}
   <div class="space-y-3">
     {% for disp in displays %}
-    {% set collegato = disp.last_seen and (adesso - disp.last_seen).total_seconds() < 15 %}
+    {% set ips = collegati.get(disp.id, []) %}
     <div class="border rounded-lg p-3 space-y-3"
          x-data="{ alterna: {{ 'true' if disp.rotation_enabled else 'false' }}, salvata: {{ 'true' if disp.rotation_enabled else 'false' }} }">
       <!-- Nome, vista attuale, stato del collegamento -->
@@ -99,14 +99,18 @@
             {% endif %}
             {% if disp.internal %}
             <span class="text-xs px-2 py-0.5 rounded font-semibold whitespace-nowrap bg-amber-100 text-amber-800"
-                  title="Ignora l'oscuramento: classifica, punteggi e jolly sempre visibili">interno</span>
+                  title="Ignora l'oscuramento: classifica, punteggi e jolly sempre visibili">Interno</span>
             {% endif %}
           </div>
           <div class="text-xs text-gray-500 mt-1 flex flex-wrap gap-x-3">
-            {% if collegato %}<span class="text-green-600 font-medium">● collegato</span>
-            {% elif disp.last_seen %}<span>○ ultimo contatto alle {{ ora_locale(disp.last_seen) }}</span>
-            {% else %}<span>○ mai collegato</span>{% endif %}
-            {% if disp.ip_address %}<span class="font-mono">{{ disp.ip_address }}</span>{% endif %}
+            {# Tutti i dispositivi che mostrano il display adesso; se nessuno, l'ultimo visto. #}
+            {% if ips %}
+              <span class="text-green-600 font-medium">● {% if ips|length > 1 %}{{ ips|length }} dispositivi collegati{% else %}Collegato{% endif %}</span>
+              {% for ip in ips %}<span class="font-mono">{{ ip }}</span>{% endfor %}
+            {% elif disp.last_seen %}
+              <span>○ Ultimo contatto alle {{ ora_locale(disp.last_seen) }}</span>
+              {% if disp.ip_address %}<span class="font-mono">{{ disp.ip_address }}</span>{% endif %}
+            {% else %}<span>○ Mai collegato</span>{% endif %}
           </div>
         </div>
         <form method="post" action="/regia/{{ comp.id }}/display/{{ disp.id }}/elimina"
@@ -136,7 +140,7 @@
         </label>
         {% endfor %}
         <span class="flex items-center gap-1.5 text-sm text-gray-600 ml-2">
-          ogni
+          Ogni
           <input name="secondi" type="number" min="{{ rotazione_secondi[0] }}" max="{{ rotazione_secondi[1] }}"
                  value="{{ disp.rotation_seconds or 15 }}" required class="w-20 border rounded px-2 py-1 text-sm">
           secondi

@@ -47,8 +47,8 @@
          {% if request.query_params.get('esito') or request.query_params.get('errore') or blocchi %}open{% endif %}>
   <summary class="px-4 py-3 cursor-pointer select-none flex flex-wrap items-center gap-2">
     <span class="font-semibold">🔒 Dispositivi collegati ({{ sessioni|length }})</span>
-    {% if blocchi %}<span class="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">tentativi di accesso bloccati</span>{% endif %}
-    <span class="text-xs text-gray-500">ogni accesso con la password è un dispositivo a sé, scollegabile da qui</span>
+    {% if blocchi %}<span class="px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800">Tentativi di accesso bloccati</span>{% endif %}
+    <span class="text-xs text-gray-500">Ogni accesso con la password è un dispositivo a sé, scollegabile da qui</span>
   </summary>
   <div class="px-4 pb-4 space-y-4">
     {% if sessioni %}

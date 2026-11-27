@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from gdm import auth
+from gdm import auth, collegamenti
 from gdm import formato
 from gdm.cache import state_cache
 from gdm.database import get_db, load_comp_full
@@ -57,6 +57,7 @@ async def display_view(
     # Update IP and last_seen
     disp.ip_address = get_client_ip(request)
     disp.last_seen = datetime.utcnow()
+    collegamenti.segna(display_id, disp.ip_address)
     db.commit()
 
     return templates.TemplateResponse("display/viewer.html", {
@@ -81,7 +82,7 @@ def _final_svelata(comp: Competition) -> list[dict]:
 
 
 @router.get("/api/{comp_id}/schermo/{display_id}/stato")
-async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends(get_db)):
+async def display_api_stato(request: Request, comp_id: int, display_id: int, db: Session = Depends(get_db)):
     """JSON endpoint polled by display viewer to get current view and data."""
 
     # Carica display e metadati gara (query leggera, senza relazioni pesanti)
@@ -94,6 +95,8 @@ async def display_api_stato(comp_id: int, display_id: int, db: Session = Depends
         raise HTTPException(status_code=404)
 
     disp.last_seen = datetime.utcnow()
+    disp.ip_address = get_client_ip(request)  # ultimo dispositivo visto (per "ultimo contatto")
+    collegamenti.segna(display_id, disp.ip_address)
     db.commit()
     return stato_viewer(comp, db, view=disp.view_now(), internal=disp.internal,
                         text_scale=disp.text_scale or 3)

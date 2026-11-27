@@ -15,6 +15,10 @@ import uvicorn
 from gdm import tls
 
 HTTP_PORT = 8000
+# Cifrari per TLS 1.2 (TLS 1.3 ha i suoi, sempre attivi). Il predefinito di uvicorn ("TLSv1") accetta solo
+# i vecchi cifrari CBC-SHA1: i browser che con TLS 1.2 propongono solo cifrari moderni (molti telefoni e
+# tablet) si vedevano chiudere la connessione durante la negoziazione.
+CIFRARI_TLS12 = "ECDHE+AESGCM:ECDHE+CHACHA20:ECDHE+AES:!aNULL:!eNULL:!MD5:!DSS"
 HTTPS_PORT = 8443
 
 
@@ -25,7 +29,7 @@ def create_servers(app, http_port: int = HTTP_PORT, https_port: int = HTTPS_PORT
     app.state.https_port = https_port
     http = uvicorn.Config(app, host="0.0.0.0", port=http_port, log_config=log_config)
     https = uvicorn.Config(app, host="0.0.0.0", port=https_port, log_config=log_config, lifespan="off",
-                           ssl_certfile=str(cert), ssl_keyfile=str(key))
+                           ssl_certfile=str(cert), ssl_keyfile=str(key), ssl_ciphers=CIFRARI_TLS12)
     return [uvicorn.Server(http), uvicorn.Server(https)]
 
 

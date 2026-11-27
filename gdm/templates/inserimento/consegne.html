@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Storico consegne — {{ comp.name }}{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between mb-4">
+<div class="flex items-center justify-between gap-3 mb-4">
   <h1 class="text-xl font-bold">Storico consegne — {{ comp.name }}</h1>
-  <a href="/inserimento/{{ comp.id }}" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded">← Inserimento</a>
+  <a href="/inserimento/{{ comp.id }}" class="text-sm bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded whitespace-nowrap">← Inserimento</a>
 </div>
 
 {% if request.query_params.get('errore') %}
@@ -109,7 +109,7 @@
   </span>
 </form>
 
-<div class="bg-white rounded-lg shadow overflow-hidden">
+<div class="bg-white rounded-lg shadow overflow-x-auto">  {# su telefono la tabella scorre di lato #}
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-600 text-xs uppercase">
       <tr>
@@ -141,7 +141,7 @@
           {% if request.state.is_local %}
           <a href="/admin/gara/{{ comp.id }}#tempo" class="text-blue-600 hover:underline">Modifica in Admin</a>
           {% else %}
-          <span class="text-gray-400">solo Admin</span>
+          <span class="text-gray-400">Solo Admin</span>
           {% endif %}
         </td>
       </tr>
@@ -172,16 +172,16 @@
           {{ "%02d:%02d"|format(mins, secs) }}
         </td>
         <td class="px-4 py-2 text-center">
-          {% if sub.is_post_game %}<span class="text-orange-500 text-xs font-medium">post</span>{% endif %}
+          {% if sub.is_post_game %}<span class="text-orange-500 text-xs font-medium">Post-gara</span>{% endif %}
           {# Solo l'Admin vede quali consegne ha aggiunto lui dallo storico, con il tempo indicato a mano. #}
           {% if sub.added_by_admin and request.state.is_local %}
           <span class="inline-block bg-purple-100 text-purple-800 text-xs font-medium px-1.5 py-0.5 rounded whitespace-nowrap"
-                title="Aggiunta dall'Admin dallo storico, con il tempo di gara indicato a mano">aggiunta da Admin</span>
+                title="Aggiunta dall'Admin dallo storico, con il tempo di gara indicato a mano">Aggiunta da Admin</span>
           {% endif %}
         </td>
         <td class="px-4 py-2">
           {% if comp.insertions_locked %}
-          <span class="text-xs text-gray-400">archiviata</span>
+          <span class="text-xs text-gray-400">Archiviata</span>
           {% else %}
           <div class="flex gap-2">
             <a href="/inserimento/{{ comp.id }}/consegne/{{ sub.id }}/modifica{% if query %}?{{ query }}{% endif %}"
